@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import express from "express";
 import path from "path";
 import { createServer as createViteServer } from "vite";
@@ -5,9 +6,24 @@ import { GoogleGenAI } from "@google/genai";
 import { COMPANIONS, INITIAL_MOOD_LOGS, INITIAL_ANONYMOUS_MESSAGES, INITIAL_CRISIS_ALERTS, INITIAL_ANALYTICS, MOCK_USERS } from "./src/data/mockData.js";
 import { MoodLog, AnonymousMessage, CrisisAlert, CompanionId } from "./src/types.js";
 
-// Initialize Gemini Client server-side
+// Load Gemini configuration with a hard guarantee that the API key is a valid
+// non-empty string. If the key were left undefined, the @google/genai SDK would
+// silently fall back to Google Application Default Credentials (ADC) and crash
+// with "Could not load the default credentials" on machines without ADC.
+const GEMINI_API_KEY = process.env.GEMINI_API_KEY?.trim();
+if (!GEMINI_API_KEY) {
+  console.error("[C3] GEMINI_API_KEY is missing or empty in the environment (.env). Gemini chat is disabled.");
+  throw new Error("GEMINI_API_KEY is required to run the C3 AI Companion server. See .env.example.");
+}
+const GEMINI_MODEL = process.env.GEMINI_MODEL?.trim() || "gemini-2.5-flash";
+const GEMINI_TEMPERATURE = Number(process.env.GEMINI_TEMPERATURE ?? 0.7);
+
+console.log(`[C3] Gemini client ready (model: ${GEMINI_MODEL}, temperature: ${GEMINI_TEMPERATURE})`);
+
+// Initialize Gemini Client server-side with explicit API key pass-through so the
+// SDK never attempts Google Application Default Credentials fallback.
 const ai = new GoogleGenAI({
-  apiKey: process.env.GEMINI_API_KEY,
+  apiKey: GEMINI_API_KEY,
   httpOptions: {
     headers: {
       'User-Agent': 'aistudio-build',
@@ -179,17 +195,45 @@ async function startServer() {
 
       let botReply = "";
 
+      // Extract generated text from a Gemini response, handling both the SDK's
+      // `response.text` convenience getter and the raw candidates structure.
+      const extractGeminiText = (resp: any): string | null => {
+        try {
+          if (typeof resp?.text === 'string' && resp.text.trim()) {
+            return resp.text;
+          }
+        } catch { /* fall through to candidates */ }
+        const parts: string[] = resp?.candidates?.[0]?.content?.parts || [];
+        const joined = parts
+          .map((p: any) => (typeof p?.text === 'string' ? p.text : ''))
+          .filter(Boolean)
+          .join('')
+          .trim();
+        if (joined) return joined;
+        return null;
+      };
+
       try {
         const response = await ai.models.generateContent({
-          model: "gemini-3.6-flash",
+          model: GEMINI_MODEL,
           contents: formattedContents,
           config: {
             systemInstruction: companion.systemPrompt,
-            temperature: 0.7,
+            temperature: GEMINI_TEMPERATURE,
           }
         });
 
-        botReply = response.text || "I hear you, and I am here with you. Take your time.";
+        const modelText = extractGeminiText(response);
+        if (modelText) {
+          botReply = modelText;
+        } else {
+          // A valid API response arrived but contained no usable text. Log it
+          // (with filtering info when present) and reply with a soft,
+          // companion-specific line rather than the generic error template.
+          console.warn(`[C3] Empty model output for ${companion.name} (${companion.id}). promptFeedback:`, JSON.stringify(response?.promptFeedback ?? null));
+          botReply = `${companion.name} took a quiet pause and wants you to know you are not alone. Cabiao SHS guidance counselors are always here for you too — would you like to try again with a few more words?`;
+        }
+
         if (botReply.includes("[CRISIS_ALERT]")) {
           if (!detectedTier || detectedTier < 3) {
             detectedTier = 3;
@@ -198,7 +242,29 @@ async function startServer() {
           botReply = botReply.replace("[CRISIS_ALERT]", "").trim();
         }
       } catch (geminiError: any) {
-        console.error("Gemini API Error:", geminiError);
+        const errInfo: any = {
+          name: geminiError?.name,
+          message: geminiError?.message,
+          status: geminiError?.status,
+          code: geminiError?.code,
+          details: geminiError?.details,
+          httpStatus: geminiError?.sdkHttpResponse?.status,
+          model: GEMINI_MODEL,
+          companionId: companion.id,
+        };
+        if (geminiError?.stack) errInfo.stack = String(geminiError.stack).split('\n').slice(0, 3).join(' | ');
+        console.error("[C3] Gemini API Error:", JSON.stringify(errInfo, null, 2));
+        console.error("[C3] Gemini API raw error object:", geminiError);
+
+        if (geminiError?.message) {
+          try {
+            const parsed = JSON.parse(geminiError.message);
+            if (parsed?.error) {
+              console.error("[C3] Gemini API error payload:", JSON.stringify(parsed.error, null, 2));
+            }
+          } catch { /* plain message already logged */ }
+        }
+
         botReply = `[${companion.name}] I hear how important this is to you. I am always listening, and please remember our Cabiao SHS guidance counselors are also here for you.`;
       }
 

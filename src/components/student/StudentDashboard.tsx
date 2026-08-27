@@ -14,6 +14,7 @@ interface StudentDashboardProps {
   isDarkMode?: boolean;
   onAddMoodLog: (log: Omit<MoodLog, 'id' | 'timestamp'>) => void;
   onOpenCompanionRoom: (id: CompanionId) => void;
+  onOpenAbout?: () => void;
   onCrisisTriggered?: (isTier3?: boolean) => void;
 }
 
@@ -152,6 +153,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
   isDarkMode = false,
   onAddMoodLog,
   onOpenCompanionRoom,
+  onOpenAbout,
   onCrisisTriggered
 }) => {
   const todayStr = new Date().toISOString().split('T')[0];
@@ -274,10 +276,10 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
     {
       id: 'casti' as CompanionId,
       name: 'Casti',
-      role: 'The Calm Listener',
+      role: 'Gentle Peer Supporter',
       icon: '☁️',
-      tagline: 'Quiet & Patient Presence',
-      description: 'A calm space to slow down and just be heard.',
+      tagline: 'Empathic & Grounding',
+      description: 'A safe, grounded space with wellness tips for when you feel heavy.',
       cardBg: isDarkMode
         ? 'bg-gradient-to-b from-[#1F1B2B] to-[#191523] border-[#382E4F] shadow-[0_6px_28px_rgba(0,0,0,0.35)] hover:shadow-[0_16px_38px_rgba(75,55,115,0.35)]'
         : 'bg-gradient-to-b from-[#F5F0FA] to-[#EDE4F7] border-[#E4D7F2] shadow-[0_6px_28px_rgba(160,130,200,0.08)] hover:shadow-[0_16px_38px_rgba(150,120,195,0.18)]',
@@ -293,10 +295,10 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
     {
       id: 'cedi' as CompanionId,
       name: 'Cedi',
-      role: 'The Gentle Encourager',
+      role: 'Reflective & Creative Companion',
       icon: '☀️',
-      tagline: 'Warm & Uplifting Sunshine',
-      description: 'Warm encouragement to notice your own strength.',
+      tagline: 'Reframe, Write & Create',
+      description: 'Helps you reframe tough thoughts, write it out, and find fresh solutions.',
       cardBg: isDarkMode
         ? 'bg-gradient-to-b from-[#2E2017] to-[#241810] border-[#4E3524] shadow-[0_6px_28px_rgba(0,0,0,0.35)] hover:shadow-[0_16px_38px_rgba(115,75,40,0.35)]'
         : 'bg-gradient-to-b from-[#FDF3EB] to-[#FAECE0] border-[#F5DCBE] shadow-[0_6px_28px_rgba(220,145,85,0.08)] hover:shadow-[0_16px_38px_rgba(215,135,70,0.18)]',
@@ -312,10 +314,10 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
     {
       id: 'cali' as CompanionId,
       name: 'Cali',
-      role: 'The Grounded Friend',
+      role: 'Academic & Action Guide',
       icon: '🌿',
-      tagline: 'Comfortable & Caring Ear',
-      description: "An easygoing friend for whatever's on your mind.",
+      tagline: 'Structured & Practical',
+      description: 'Turns exam pressure and deadlines into a clear, doable study plan.',
       cardBg: isDarkMode
         ? 'bg-gradient-to-b from-[#1A261D] to-[#141F17] border-[#2B4232] shadow-[0_6px_28px_rgba(0,0,0,0.35)] hover:shadow-[0_16px_38px_rgba(45,85,55,0.35)]'
         : 'bg-gradient-to-b from-[#EFF6F0] to-[#E3EFE5] border-[#D3E7D6] shadow-[0_6px_28px_rgba(100,170,120,0.08)] hover:shadow-[0_16px_38px_rgba(90,160,110,0.18)]',
@@ -658,6 +660,21 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
         }`}>
           — {inspirationSource === 'affirmations' ? currentDailyWisdom.source : currentDailyVerse.ref}
         </p>
+
+        {onOpenAbout && (
+          <button
+            type="button"
+            onClick={onOpenAbout}
+            className={`mt-6 inline-flex items-center space-x-2 px-4 py-2 rounded-full text-xs font-semibold transition-all duration-200 cursor-pointer backdrop-blur-xs border shadow-2xs hover:-translate-y-0.5 ${
+              isDarkMode
+                ? 'text-[#C9BAAB] bg-[#201B17]/60 border-[#3A322B] hover:bg-[#2A231D] hover:border-[#4A4037]'
+                : 'text-[#7D665B] bg-white/70 border-[#EFE5D8] hover:bg-white hover:border-[#E0D4C4]'
+            }`}
+          >
+            <span>✦</span>
+            <span>About the Research Team</span>
+          </button>
+        )}
       </footer>
 
       {/* Settings Modal */}

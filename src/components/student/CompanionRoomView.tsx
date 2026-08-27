@@ -203,7 +203,7 @@ export const CompanionRoomView: React.FC<CompanionRoomViewProps> = ({
         ? 'bg-[#221A2E] hover:bg-[#2E233E] text-[#D8C7F0] border-[#3D2F54]'
         : 'bg-white hover:bg-[#F5F0FA] text-[#6E5496] border-[#E4D7F2] shadow-2xs',
       roomTitle: "Casti's Quiet Corner",
-      subTitle: "The Calm Listener • A quiet, soothing space",
+      subTitle: "Gentle Peer Supporter • A quiet, soothing space",
       avatarBg: isDarkMode ? 'bg-[#2D2440] text-[#D8C7F0] ring-2 ring-[#3D3057]' : 'bg-white text-[#6E5496] ring-2 ring-[#EADBFA]'
     },
     cedi: {
@@ -218,7 +218,7 @@ export const CompanionRoomView: React.FC<CompanionRoomViewProps> = ({
         ? 'bg-[#281A12] hover:bg-[#382418] text-[#F5C79E] border-[#4E3220]'
         : 'bg-white hover:bg-[#FDF3EB] text-[#A6692E] border-[#F5DCBE] shadow-2xs',
       roomTitle: "Cedi's Warm Space",
-      subTitle: "The Gentle Encourager • Uplifting & hopeful",
+      subTitle: "Reflective & Creative Companion • Reframe, write & create",
       avatarBg: isDarkMode ? 'bg-[#3D281C] text-[#F5C79E] ring-2 ring-[#573926]' : 'bg-white text-[#B5783A] ring-2 ring-[#FCE5CF]'
     },
     cali: {
@@ -233,7 +233,7 @@ export const CompanionRoomView: React.FC<CompanionRoomViewProps> = ({
         ? 'bg-[#152418] hover:bg-[#1E3323] text-[#A6DCB1] border-[#29422F]'
         : 'bg-white hover:bg-[#EFF6F0] text-[#3E734D] border-[#D3E7D6] shadow-2xs',
       roomTitle: "Cali's Cozy Room",
-      subTitle: "The Grounded Friend • Easygoing & down-to-earth",
+      subTitle: "Academic & Action Guide • Structured & practical",
       avatarBg: isDarkMode ? 'bg-[#233527] text-[#A6DCB1] ring-2 ring-[#314D37]' : 'bg-white text-[#4A855A] ring-2 ring-[#D8EDE0]'
     }
   }[companionId];

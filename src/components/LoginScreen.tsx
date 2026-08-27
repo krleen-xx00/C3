@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { User, UserRole } from '../types';
 import { MOCK_USERS } from '../data/mockData';
-import { HeartHandshake, Sparkles, Shield, ArrowRight, UserCheck, CheckCircle2 } from 'lucide-react';
+import { Sparkles, Shield, ArrowRight, UserCheck, CheckCircle2 } from 'lucide-react';
 
 interface LoginScreenProps {
   onLogin: (user: User) => void;
@@ -64,8 +64,13 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin }) => {
         
         {/* Logo */}
         <div className="w-16 h-16 mx-auto rounded-3xl bg-gradient-to-tr from-emerald-500 via-teal-400 to-sky-400 p-0.5 shadow-xl shadow-emerald-500/30 flex items-center justify-center mb-4">
-          <div className="w-full h-full bg-white dark:bg-slate-900 rounded-[22px] flex items-center justify-center">
-            <HeartHandshake className="w-9 h-9 text-emerald-500" />
+          <div className="w-full h-full bg-white dark:bg-slate-900 rounded-[22px] flex items-center justify-center overflow-hidden">
+            <img
+              src="/logo.jpg"
+              alt="Cabiao National Senior High School logo"
+              className="w-full h-full object-cover"
+              draggable={false}
+            />
           </div>
         </div>
 

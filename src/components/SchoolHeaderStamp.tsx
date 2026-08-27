@@ -1,5 +1,4 @@
 import React from 'react';
-import { CabiaoLogo } from './CabiaoLogo';
 
 interface SchoolHeaderStampProps {
   isDarkMode?: boolean;
@@ -19,8 +18,13 @@ export const SchoolHeaderStamp: React.FC<SchoolHeaderStampProps> = ({ isDarkMode
             : 'bg-[#FFFDF9]/90 border-[#EFE5D8]/90'
         }`}
       >
-        <div className="w-full h-full opacity-90 transition-opacity hover:opacity-100 flex items-center justify-center">
-          <CabiaoLogo className="w-full h-full drop-shadow-2xs" />
+        <div className="w-full h-full opacity-95 transition-opacity hover:opacity-100 flex items-center justify-center overflow-hidden rounded-full">
+          <img
+            src="/logo.jpg"
+            alt="Cabiao National Senior High School logo"
+            className="w-full h-full object-cover"
+            draggable={false}
+          />
         </div>
       </div>
 

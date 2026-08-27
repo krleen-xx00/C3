@@ -3,6 +3,7 @@ import { User, CompanionId, MoodLog, CrisisAlert } from './types';
 import { MOCK_USERS, INITIAL_MOOD_LOGS, INITIAL_CRISIS_ALERTS } from './data/mockData';
 import { StudentDashboard } from './components/student/StudentDashboard';
 import { CompanionRoomView } from './components/student/CompanionRoomView';
+import { AboutUsView } from './components/student/AboutUsView';
 import { CounselorDashboard } from './components/counselor/CounselorDashboard';
 import { ViewSwitcher } from './components/ViewSwitcher';
 import { CrisisModal } from './components/CrisisModal';
@@ -14,6 +15,7 @@ export default function App() {
   const [currentUser] = useState<User>(MOCK_USERS[0]); // Maria Santos (Student)
   const [viewMode, setViewMode] = useState<'student' | 'counselor'>('student');
   const [activeCompanionRoom, setActiveCompanionRoom] = useState<CompanionId | null>(null);
+  const [showAboutPage, setShowAboutPage] = useState(false);
   
   // App state synchronized with backend
   const [moodLogs, setMoodLogs] = useState<MoodLog[]>(INITIAL_MOOD_LOGS);
@@ -141,13 +143,14 @@ export default function App() {
       <div className="fixed right-3 sm:right-6 top-3.5 sm:top-4 z-40 flex items-center space-x-2 sm:space-x-2.5">
         <ViewSwitcher
           viewMode={viewMode}
-          onViewChange={(mode) => {
-            setViewMode(mode);
-            // Return to main dashboard view if switching from companion room
-            if (mode === 'counselor') {
-              setActiveCompanionRoom(null);
-            }
-          }}
+onViewChange={(mode) => {
+              setViewMode(mode);
+              // Return to main dashboard view if switching from companion room
+              if (mode === 'counselor') {
+                setActiveCompanionRoom(null);
+                setShowAboutPage(false);
+              }
+            }}
           isDarkMode={isDarkMode}
         />
         <NightModeToggle
@@ -167,9 +170,14 @@ export default function App() {
             companionId={activeCompanionRoom}
             isDarkMode={isDarkMode}
             latestMoodLog={latestMoodLog}
-            onBackToDashboard={() => setActiveCompanionRoom(null)}
+            onBackToDashboard={() => { setActiveCompanionRoom(null); setShowAboutPage(false); }}
             onSwitchCompanionRoom={(id) => setActiveCompanionRoom(id)}
             onCrisisTriggered={handleOpenEmergencyCrisis}
+          />
+        ) : showAboutPage ? (
+          <AboutUsView
+            isDarkMode={isDarkMode}
+            onBackToDashboard={() => setShowAboutPage(false)}
           />
         ) : (
           <StudentDashboard
@@ -178,6 +186,7 @@ export default function App() {
             isDarkMode={isDarkMode}
             onAddMoodLog={handleAddMoodLog}
             onOpenCompanionRoom={(id) => setActiveCompanionRoom(id)}
+            onOpenAbout={() => setShowAboutPage(true)}
             onCrisisTriggered={handleOpenEmergencyCrisis}
           />
         )}
