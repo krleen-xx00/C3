@@ -1,0 +1,6 @@
+{
+  "name": "C3 - AI Companion System",
+  "description": "AI Companion System for monitoring students' emotional well-being and mental health support at Cabiao Senior High School.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
