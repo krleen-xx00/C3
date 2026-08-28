@@ -147,7 +147,7 @@ function analyzeRiskTier(text: string): { tier: 1 | 2 | 3 | null; triggerPhrase?
 
 async function startServer() {
   const app = express();
-  const PORT = 3000;
+  const PORT = Number(process.env.PORT) || 3000;
 
   app.use(express.json());
 

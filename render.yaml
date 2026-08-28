@@ -1,0 +1,18 @@
+# Render Blueprint for the C3 AI Companion System
+# Auto-detected by Render when this repo is connected as a Blueprint,
+# or used manually when creating a New Web Service.
+services:
+  - type: web
+    name: c3-ai-companion
+    runtime: node
+    plan: free
+    buildCommand: npm run build
+    startCommand: npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      # Set this in the Render dashboard after the service is created.
+      # - key: GEMINI_API_KEY
+      #   value: replace-with-your-key
+      - key: GEMINI_API_KEY
+        sync: false
