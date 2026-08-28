@@ -5,6 +5,43 @@ import { createServer as createViteServer } from "vite";
 import { GoogleGenAI } from "@google/genai";
 import { COMPANIONS, INITIAL_MOOD_LOGS, INITIAL_ANONYMOUS_MESSAGES, INITIAL_CRISIS_ALERTS, INITIAL_ANALYTICS, MOCK_USERS } from "./src/data/mockData.js";
 import { MoodLog, AnonymousMessage, CrisisAlert, CompanionId } from "./src/types.js";
+import { ACADEMIC_CLUSTERS, getClusterById } from "./src/data/academicTracks.js";
+
+// Build a track-aware system prompt section so companions can reference the
+// student's real academic track / TechPro career cluster, coursework, and load.
+function buildTrackContext(clusterId?: string, stressLevel?: number, preferredName?: string): string {
+  const cluster = getClusterById((clusterId || 'tp-ict') as any);
+  const name = preferredName || 'student';
+  const stress = Math.min(10, Math.max(1, Number(stressLevel) || 5));
+  const clusterName = cluster?.name || 'ICT Support and Computer Programming';
+  const short = cluster?.shortLabel || 'ICT';
+  const track = cluster?.track === 'academic' ? 'Academic Track' : 'Technical-Professional (TechPro)';
+
+  const context: Record<string, string> = {
+    stem: 'Science, Technology, Engineering, and Mathematics — lab reports, research projects, calculus, and science experiments.',
+    business: 'Business and Entrepreneurship — business plans, marketing pitches, financial calculations, and entrepreneurial projects.',
+    'arts-soc-hum': 'Arts, Social Sciences, and Humanities — essays, research defense, literature, history, and social science analysis.',
+    'sports-health': 'Sports, Health, and Wellness — PE/health practicums, training schedules, and wellness activities.',
+    'tp-ict': 'ICT Support and Computer Programming — coding, debugging, computer lab sessions, system/capstone projects, NC II certification review, and work immersion in tech environments.',
+    'tp-creative': 'Creative Arts and Design Technology — design projects, digital art, multimedia work, and portfolio building.',
+    'tp-industrial': 'Industrial Technologies — machine work, workshop safety, and industrial practicums.',
+    'tp-construction': 'Construction and Building Technology — measuring, drafting, building projects, and site safety.',
+    'tp-automotive': 'Automotive and Small Engine Technologies — engine repair, diagnostics, and hands-on shop work.',
+    'tp-hospitality': 'Hospitality and Tourism — hotel operations, front office, food & beverage service, and customer care.',
+    'tp-agri': 'Agri-Fishery Business and Food Innovation — crop production, food processing, and agribusiness.',
+    'tp-maritime': 'Maritime — navigation, seamanship, and deck/cabin operations.',
+    'tp-artisanry': 'Artisanry and Creative Enterprise — handicraft, small-business craft, and product making.',
+    'tp-aesthetic': 'Aesthetic, Wellness, and Human Care — beauty/wellness services and client care.'
+  };
+
+  const specifics = context[clusterId || 'tp-ict'] || context['tp-ict'];
+
+  return `
+STUDENT CONTEXT (use this to personalize your support):
+The student is on the ${track}, ${short} cluster (${clusterName}). They are ${name}. Their current self-reported load/stress level is ${stress} out of 10 (10 = overwhelmed).
+Their coursework involves: ${specifics}
+When helping this student, refer to real, concrete examples from their track (e.g., debugging a program, a coding summative, NC II review, a research defense, a business pitch, or lab work) so advice feels tailored and relevant. Acknowledge their stress level naturally and gently without being patronizing.`;
+}
 
 // Load Gemini configuration gracefully. If the API key is missing (e.g. not set
 // on Netlify), we still boot the server and render the React UI — the chat
@@ -171,12 +208,16 @@ async function startServer() {
   // 2. Chat endpoint with Gemini API for C3 companions
   app.post("/api/chat", async (req, res) => {
     try {
-      const { companionId, message, studentId, studentName, gradeSection, history } = req.body;
+      const { companionId, message, studentId, studentName, gradeSection, history, preferredName, academicClusterId, stressLevel } = req.body;
 
       const companion = COMPANIONS.find(c => c.id === companionId);
       if (!companion) {
         return res.status(400).json({ error: "Invalid companion ID" });
       }
+
+      // Personalize the system prompt with the student's academic track & load
+      const trackContext = buildTrackContext(academicClusterId, stressLevel, preferredName);
+      const personalizedSystemPrompt = companion.systemPrompt + trackContext;
 
       // Analyze Risk Tier based on message
       const riskAnalysis = analyzeRiskTier(message);
@@ -229,7 +270,7 @@ async function startServer() {
             model: GEMINI_MODEL,
             contents: formattedContents,
             config: {
-              systemInstruction: companion.systemPrompt,
+              systemInstruction: personalizedSystemPrompt,
               temperature: GEMINI_TEMPERATURE,
             }
           });

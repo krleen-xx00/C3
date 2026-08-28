@@ -4,6 +4,37 @@ export type InspirationSource = 'affirmations' | 'scripture';
 
 export type RiskTier = 1 | 2 | 3;
 
+// New DepEd K-12 curriculum academic tracks & TechPro career clusters.
+// Academic Track clusters:
+export type AcademicClusterId =
+  | 'stem'
+  | 'business'
+  | 'arts-soc-hum'
+  | 'sports-health'
+  // TechPro (Technical-Professional) clusters:
+  | 'tp-ict'
+  | 'tp-creative'
+  | 'tp-industrial'
+  | 'tp-construction'
+  | 'tp-automotive'
+  | 'tp-hospitality'
+  | 'tp-agri'
+  | 'tp-maritime'
+  | 'tp-artisanry'
+  | 'tp-aesthetic';
+
+// Overall track groups (Academic or Technical-Professional)
+export type AcademicTrackId = 'academic' | 'techpro';
+
+export interface AcademicCluster {
+  id: AcademicClusterId;
+  track: AcademicTrackId;
+  name: string;
+  shortLabel: string;
+} 
+
+export type UserStressLevel = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10;
+
 export interface User {
   id: string;
   name: string;
@@ -14,6 +45,7 @@ export interface User {
   studentId?: string;
   department?: string;
   inspirationSource?: InspirationSource;
+  academicClusterId?: AcademicClusterId;
 }
 
 export type CompanionId = 'casti' | 'cedi' | 'cali';

@@ -29,7 +29,7 @@ export const SchoolHeaderStamp: React.FC<SchoolHeaderStampProps> = ({ isDarkMode
       </div>
 
       {/* School stamp text in official dark-green brand color */}
-      <div className="flex flex-col">
+      <div className="flex flex-col hidden sm:flex">
         <span
           className={`text-sm sm:text-lg font-bold tracking-tight leading-tight transition-colors ${
             isDarkMode ? 'text-[#A8C9B4]' : 'text-[#0e2c1f]'

@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { User, CompanionId, ChatMessage, MoodLog, RiskTier } from '../../types';
+import { User, CompanionId, ChatMessage, MoodLog, RiskTier, AcademicClusterId, UserStressLevel } from '../../types';
 import { COMPANIONS } from '../../data/mockData';
+import { getClusterById } from '../../data/academicTracks';
 import { Send, ArrowLeft, Wind, RefreshCw, Sparkles } from 'lucide-react';
 import { TieredResourceCard } from './TieredResourceCard';
 import { classifyRisk } from '../../utils/riskClassifier';
@@ -14,6 +15,9 @@ interface CompanionRoomViewProps {
   onBackToDashboard: () => void;
   onSwitchCompanionRoom: (id: CompanionId) => void;
   onCrisisTriggered: (isTier3?: boolean) => void;
+  preferredName?: string;
+  academicClusterId?: AcademicClusterId;
+  stressLevel?: UserStressLevel;
 }
 
 export const CompanionRoomView: React.FC<CompanionRoomViewProps> = ({
@@ -23,7 +27,10 @@ export const CompanionRoomView: React.FC<CompanionRoomViewProps> = ({
   latestMoodLog,
   onBackToDashboard,
   onSwitchCompanionRoom,
-  onCrisisTriggered
+  onCrisisTriggered,
+  preferredName,
+  academicClusterId = 'tp-ict' as AcademicClusterId,
+  stressLevel = 5
 }) => {
   const [messages, setMessages] = useState<Record<CompanionId, ChatMessage[]>>({
     casti: [],
@@ -121,6 +128,9 @@ export const CompanionRoomView: React.FC<CompanionRoomViewProps> = ({
           studentId: currentUser.id,
           studentName: currentUser.name,
           gradeSection: currentUser.gradeSection,
+          preferredName: preferredName || currentUser.name.split(' ')[0],
+          academicClusterId: academicClusterId,
+          stressLevel: stressLevel,
           history: companionHistory
         })
       });
@@ -239,10 +249,21 @@ export const CompanionRoomView: React.FC<CompanionRoomViewProps> = ({
   }[companionId];
 
   return (
-    <div className={`max-w-4xl mx-auto pt-16 sm:pt-20 pb-8 px-4 space-y-6 transition-colors duration-300 ${
+    <div className={`max-w-4xl mx-auto pt-16 sm:pt-20 pb-28 md:pb-8 px-4 space-y-6 transition-colors duration-300 ${
       isDarkMode ? 'text-[#EDE5DB]' : 'text-[#3D2C2C]'
     }`}>
       
+      {/* Track context chip for personalization feedback */}
+      <div className="flex justify-center md:hidden -mb-2">
+        <span className={`inline-flex items-center space-x-1.5 px-3 py-1 rounded-full text-[11px] font-semibold border backdrop-blur-xs ${
+          isDarkMode ? 'bg-[#221B17]/80 text-[#E8CDAC] border-[#3D332B]' : 'bg-white/80 text-amber-700 border-[#ECDCC6]'
+        }`}>
+          <Sparkles className="w-3 h-3" />
+          <span>
+            Speaking with you as a {getClusterById(academicClusterId)?.shortLabel || 'student'} · load {stressLevel}/10
+          </span>
+        </span>
+      </div>
       {/* Top Header & Navigation Bar */}
       <div className={`p-5 sm:p-6 rounded-[32px] ${themeStyles.topHeaderBg} border shadow-[0_4px_20px_rgba(0,0,0,0.04)] flex flex-col sm:flex-row sm:items-center justify-between gap-4`}>
         
@@ -369,7 +390,7 @@ export const CompanionRoomView: React.FC<CompanionRoomViewProps> = ({
       )}
 
       {/* Main Chat Container */}
-      <div className={`rounded-[36px] border overflow-hidden flex flex-col h-[550px] transition-all duration-300 ${
+      <div className={`rounded-[36px] border overflow-hidden flex flex-col h-[calc(100dvh-13rem)] min-h-[460px] md:h-[560px] transition-all duration-300 ${
         isDarkMode
           ? 'bg-[#201A17]/95 backdrop-blur-md border-[#382F28] shadow-[0_8px_32px_rgba(0,0,0,0.35)]'
           : 'bg-[#FFFDF9]/95 backdrop-blur-md border-[#F2E8DC] shadow-[0_8px_32px_rgba(180,140,110,0.07)]'

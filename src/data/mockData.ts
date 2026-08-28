@@ -34,9 +34,9 @@ CRISIS SAFETY PROTOCOL:
 - If the student uses language indicating self-harm, suicide, or severe distress, respond immediately with deep warmth, reassurance that they matter, and gently direct them to the Cabiao Senior High School Guidance Office or the National Center for Mental Health (NCMH) crisis hotline 1553. Explicitly include the keyword tag [CRISIS_ALERT] in your message so school guidance services are alerted immediately.`,
     initialGreeting: 'Kumusta? I am Casti ☁️. Take a soft breath... you are in a safe space with me. If today feels heavy, you can rest it here. Would you like to tell me what is on your heart, or should we try a quick calming breath together?',
     samplePrompts: [
-      'I just want to vent about a heavy day without being judged.',
-      'How do I calm down fast before my next class?',
-      'I feel so overwhelmed and lonely lately.',
+      'I just want to vent about a heavy day in the computer lab without being judged.',
+      'How do I calm down fast before my computer programming summative?',
+      'I feel overwhelmed trying to finish our ICT system and prepare for NC II review.',
       'Walk me through a quick breathing exercise.'
     ]
   },
@@ -70,12 +70,12 @@ NON-CLINICAL BOUNDARY:
 
 CRISIS SAFETY PROTOCOL:
 - If the student expresses self-harm, suicide, or severe distress, soften your tone and center on safety. Reassure them they matter, and gently direct them to the Cabiao Senior High School Guidance Office or the National Center for Mental Health (NCMH) crisis hotline 1553. Explicitly include the keyword tag [CRISIS_ALERT] in your message so school guidance services are alerted.`,
-    initialGreeting: 'Hi! I am Cedi ✨. Big feelings are easier when we unpack them together. Tell me what is stuck in your head right now, and let us look at it from a fresh angle.',
+    initialGreeting: 'Hi! I am Cedi ✨. Big feelings are easier when we unpack them together. Tell me what is stuck in your head right now — maybe a buggy code, a low grade, or something a classmate said — and let us look at it from a fresh angle.',
     samplePrompts: [
-      'I keep telling myself I am not good enough.',
-      'Help me reframe this stressful thought about my grades.',
-      'I want to write out how I feel but do not know where to start.',
-      'I feel stuck on a problem in school - help me brainstorm solutions.'
+      'I keep telling myself I am not good enough at programming.',
+      'Help me reframe this stressful thought about my coding practical grades.',
+      'I want to write out how I feel about failing this ICT task but do not know where to start.',
+      'I feel stuck on a bug in our system - help me brainstorm solutions.'
     ]
   },
   {
@@ -108,12 +108,12 @@ NON-CLINICAL BOUNDARY:
 
 CRISIS SAFETY PROTOCOL:
 - If the student expresses self-harm, suicide, or severe distress, pause the planning immediately. Show genuine care, tell them they matter, and gently direct them to the Cabiao Senior High School Guidance Office or the National Center for Mental Health (NCMH) crisis hotline 1553. Explicitly include the keyword tag [CRISIS_ALERT] in your message so school guidance services are alerted.`,
-    initialGreeting: 'Hey there! I am Cali 🌿. Let us turn that mountain of schoolwork into a clear plan, one step at a time. What is eating up your time or stress right now — exams, deadlines, or something else?',
+    initialGreeting: 'Hey there! I am Cali 🌿. Let us turn that mountain of schoolwork — debugging, work immersion, NC II review — into a clear plan, one step at a time. What is eating up your time or stress right now?',
     samplePrompts: [
-      'I have 5 exams next week and no idea how to start studying.',
-      'Help me make a weekly study schedule that fits my after-school time.',
-      'I keep cramming the night before. How do I manage my time better?',
-      'Break down my big research project into smaller tasks.'
+      'I have 5 exams next week and a big ICT system to finish - no idea how to start.',
+      'Help me make a weekly study schedule that fits my after-school time and coding practice.',
+      'I keep cramming my programming summatives the night before. How do I manage time better?',
+      'Break down my big work immersion / capstone project into smaller tasks.'
     ]
   }
 ];
@@ -125,8 +125,9 @@ export const MOCK_USERS: User[] = [
     email: 'maria.santos@cabiaoshs.edu.ph',
     role: 'student',
     avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
-    gradeSection: 'Grade 12 - STEM A',
-    studentId: '2026-10482'
+    gradeSection: 'Grade 12 - TechPro: ICT Support & Computer Programming',
+    studentId: '2026-10482',
+    academicClusterId: 'tp-ict'
   },
   {
     id: 'std_juan_dela_cruz',
@@ -134,8 +135,9 @@ export const MOCK_USERS: User[] = [
     email: 'juan.delacruz@cabiaoshs.edu.ph',
     role: 'student',
     avatar: 'https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?w=150&auto=format&fit=crop&q=80',
-    gradeSection: 'Grade 11 - HUMSS B',
-    studentId: '2026-10819'
+    gradeSection: 'Grade 11 - Academic: Arts, Social Sciences & Humanities',
+    studentId: '2026-10819',
+    academicClusterId: 'arts-soc-hum'
   },
   {
     id: 'csl_elena_reyes',
@@ -155,7 +157,7 @@ export const INITIAL_MOOD_LOGS: MoodLog[] = [
     date: '2026-07-24',
     moodType: 'anxious',
     moodScore: 4,
-    note: 'Stressed about upcoming Practical Research defence.',
+    note: 'Stressed about the upcoming Practical Research defense, on top of a tricky computer programming summative.',
     factors: ['Exams/Schoolwork', 'Sleep'],
     timestamp: '2026-07-24T08:30:00Z'
   },
@@ -166,7 +168,7 @@ export const INITIAL_MOOD_LOGS: MoodLog[] = [
     date: '2026-07-25',
     moodType: 'tired',
     moodScore: 5,
-    note: 'Slept only 4 hours working on STEM project.',
+    note: 'Slept only 4 hours debugging a system for ICT Support & Computer Programming.',
     factors: ['Sleep', 'Schoolwork'],
     timestamp: '2026-07-25T09:15:00Z'
   },
@@ -177,7 +179,7 @@ export const INITIAL_MOOD_LOGS: MoodLog[] = [
     date: '2026-07-26',
     moodType: 'calm',
     moodScore: 7,
-    note: 'Had a good chat with Casti and did breathing exercises.',
+    note: 'Had a good chat with Casti and did breathing exercises. Took a real break from the computer lab.',
     factors: ['Friends', 'Self-care'],
     timestamp: '2026-07-26T14:20:00Z'
   },
@@ -188,7 +190,7 @@ export const INITIAL_MOOD_LOGS: MoodLog[] = [
     date: '2026-07-27',
     moodType: 'energetic',
     moodScore: 8,
-    note: 'Research group meeting went really well today!',
+    note: 'Our ICT group finally got the code to run during work immersion prep — it felt great!',
     factors: ['Schoolwork', 'Friends'],
     timestamp: '2026-07-27T16:00:00Z'
   },
@@ -199,7 +201,7 @@ export const INITIAL_MOOD_LOGS: MoodLog[] = [
     date: '2026-07-28',
     moodType: 'calm',
     moodScore: 8,
-    note: 'Feeling balanced and ready for the week.',
+    note: 'Feeling balanced and ready for the week, despite the NC II review schedule.',
     factors: ['Family', 'Sleep'],
     timestamp: '2026-07-28T19:40:00Z'
   },
@@ -210,7 +212,7 @@ export const INITIAL_MOOD_LOGS: MoodLog[] = [
     date: '2026-07-29',
     moodType: 'energetic',
     moodScore: 9,
-    note: 'Completed C3 companion check-in & feeling motivated!',
+    note: 'Completed C3 companion check-in & feeling motivated for tomorrows tech demo!',
     factors: ['Self-care', 'Schoolwork'],
     timestamp: '2026-07-29T10:00:00Z'
   },
@@ -222,7 +224,7 @@ export const INITIAL_MOOD_LOGS: MoodLog[] = [
     date: '2026-07-28',
     moodType: 'sad',
     moodScore: 3,
-    note: 'Feeling disconnected lately.',
+    note: 'Feeling disconnected lately while juggling essay deadlines in HUMSS subjects.',
     factors: ['Family', 'Friends'],
     timestamp: '2026-07-28T11:00:00Z'
   },
@@ -233,7 +235,7 @@ export const INITIAL_MOOD_LOGS: MoodLog[] = [
     date: '2026-07-29',
     moodType: 'anxious',
     moodScore: 4,
-    note: 'Worried about college entrance exams.',
+    note: 'Worried about the research defense requirements and keeping up my grades.',
     factors: ['Exams/Schoolwork'],
     timestamp: '2026-07-29T15:30:00Z'
   }

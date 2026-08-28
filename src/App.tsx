@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { User, CompanionId, MoodLog, CrisisAlert } from './types';
+import { User, CompanionId, MoodLog, CrisisAlert, AcademicClusterId, UserStressLevel } from './types';
 import { MOCK_USERS, INITIAL_MOOD_LOGS, INITIAL_CRISIS_ALERTS } from './data/mockData';
 import { StudentDashboard } from './components/student/StudentDashboard';
 import { CompanionRoomView } from './components/student/CompanionRoomView';
@@ -17,6 +17,38 @@ export default function App() {
   const [activeCompanionRoom, setActiveCompanionRoom] = useState<CompanionId | null>(null);
   const [showAboutPage, setShowAboutPage] = useState(false);
   
+  // Personalization state (shared between dashboard and companion room)
+  const [preferredName, setPreferredName] = useState<string>(() => {
+    try {
+      return localStorage.getItem('c3-preferred-name') || 'Maria';
+    } catch { return 'Maria'; }
+  });
+  const [academicClusterId, setAcademicClusterId] = useState<AcademicClusterId>(() => {
+    try {
+      const saved = localStorage.getItem('c3-academic-cluster');
+      return (saved as AcademicClusterId) || 'tp-ict';
+    } catch { return 'tp-ict'; }
+  });
+  const [stressLevel, setStressLevel] = useState<UserStressLevel>(() => {
+    try {
+      const saved = Number(localStorage.getItem('c3-stress-level'));
+      return (saved >= 1 && saved <= 10 ? saved : 5) as UserStressLevel;
+    } catch { return 5; }
+  });
+
+  const handleChangePreferredName = (name: string) => {
+    setPreferredName(name);
+    try { localStorage.setItem('c3-preferred-name', name); } catch {}
+  };
+  const handleChangeAcademicCluster = (id: AcademicClusterId) => {
+    setAcademicClusterId(id);
+    try { localStorage.setItem('c3-academic-cluster', id); } catch {}
+  };
+  const handleChangeStressLevel = (level: UserStressLevel) => {
+    setStressLevel(level);
+    try { localStorage.setItem('c3-stress-level', String(level)); } catch {}
+  };
+
   // App state synchronized with backend
   const [moodLogs, setMoodLogs] = useState<MoodLog[]>(INITIAL_MOOD_LOGS);
   const [, setCrisisAlerts] = useState<CrisisAlert[]>(INITIAL_CRISIS_ALERTS);
@@ -161,7 +193,7 @@ onViewChange={(mode) => {
       </div>
 
       {/* Main Container */}
-      <main className="relative z-10 w-full">
+      <main className="relative z-10 w-full pb-16 md:pb-0">
         {viewMode === 'counselor' ? (
           <CounselorDashboard isDarkMode={isDarkMode} />
         ) : activeCompanionRoom ? (
@@ -170,6 +202,9 @@ onViewChange={(mode) => {
             companionId={activeCompanionRoom}
             isDarkMode={isDarkMode}
             latestMoodLog={latestMoodLog}
+            preferredName={preferredName}
+            academicClusterId={academicClusterId}
+            stressLevel={stressLevel}
             onBackToDashboard={() => { setActiveCompanionRoom(null); setShowAboutPage(false); }}
             onSwitchCompanionRoom={(id) => setActiveCompanionRoom(id)}
             onCrisisTriggered={handleOpenEmergencyCrisis}
@@ -188,6 +223,12 @@ onViewChange={(mode) => {
             onOpenCompanionRoom={(id) => setActiveCompanionRoom(id)}
             onOpenAbout={() => setShowAboutPage(true)}
             onCrisisTriggered={handleOpenEmergencyCrisis}
+            preferredName={preferredName}
+            onChangePreferredName={handleChangePreferredName}
+            academicClusterId={academicClusterId}
+            onChangeAcademicCluster={handleChangeAcademicCluster}
+            stressLevel={stressLevel}
+            onChangeStressLevel={handleChangeStressLevel}
           />
         )}
       </main>

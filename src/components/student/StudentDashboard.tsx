@@ -1,12 +1,15 @@
 import React, { useState, useEffect } from 'react';
-import { User, CompanionId, MoodLog, InspirationSource, RiskTier } from '../../types';
+import { User, CompanionId, MoodLog, InspirationSource, RiskTier, AcademicClusterId, UserStressLevel } from '../../types';
 import { motion, AnimatePresence } from 'motion/react';
-import { Sparkles, ArrowRight, Settings } from 'lucide-react';
+import { Sparkles, ArrowRight, Settings, UserPlus } from 'lucide-react';
 import { DailyInspirationCard } from './DailyInspirationCard';
 import { InspirationSettingsModal } from './InspirationSettingsModal';
+import { PersonalizationPanel } from './PersonalizationPanel';
+import { MobileTabBar, MobileTabId } from './MobileTabBar';
 import { TieredResourceCard } from './TieredResourceCard';
 import { classifyRisk } from '../../utils/riskClassifier';
 import { SECULAR_AFFIRMATIONS, SECULAR_DAILY_WISDOM } from '../../data/affirmationsData';
+import { getClusterById } from '../../data/academicTracks';
 
 interface StudentDashboardProps {
   currentUser: User;
@@ -16,6 +19,12 @@ interface StudentDashboardProps {
   onOpenCompanionRoom: (id: CompanionId) => void;
   onOpenAbout?: () => void;
   onCrisisTriggered?: (isTier3?: boolean) => void;
+  preferredName: string;
+  onChangePreferredName: (name: string) => void;
+  academicClusterId: AcademicClusterId;
+  onChangeAcademicCluster: (id: AcademicClusterId) => void;
+  stressLevel: UserStressLevel;
+  onChangeStressLevel: (level: UserStressLevel) => void;
 }
 
 interface MoodOption {
@@ -154,10 +163,26 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
   onAddMoodLog,
   onOpenCompanionRoom,
   onOpenAbout,
-  onCrisisTriggered
+  onCrisisTriggered,
+  preferredName,
+  onChangePreferredName,
+  academicClusterId,
+  onChangeAcademicCluster,
+  stressLevel,
+  onChangeStressLevel
 }) => {
   const todayStr = new Date().toISOString().split('T')[0];
   const latestTodayLog = moodLogs.find(l => l.studentId === currentUser.id && l.date === todayStr);
+
+  // Mobile tab navigation state (only used on small screens)
+  const [activeTab, setActiveTab] = useState<MobileTabId>('overview');
+
+  // Personalization panel state
+  const [isPersonalizationOpen, setIsPersonalizationOpen] = useState<boolean>(false);
+
+  // Used for greeting personalization
+  const displayName = (preferredName || currentUser.name.split(' ')[0]).trim();
+  const clusterLabel = getClusterById(academicClusterId)?.shortLabel || '';
 
   // Student Inspiration Preference: default to 'affirmations' (pre-selected)
   const [inspirationSource, setInspirationSource] = useState<InspirationSource>(() => {
@@ -193,14 +218,13 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
   // Determine time-of-day greeting
   const getGreetingData = () => {
     const hour = new Date().getHours();
-    const firstName = currentUser.name.split(' ')[0];
     if (hour < 12) {
-      return { text: `Good morning, ${firstName}`, icon: '🌱', badge: 'Morning Calm' };
+      return { text: `Good morning, ${displayName}`, icon: '🌱', badge: 'Morning Calm' };
     }
     if (hour < 18) {
-      return { text: `Good afternoon, ${firstName}`, icon: '☀️', badge: 'Afternoon Breath' };
+      return { text: `Good afternoon, ${displayName}`, icon: '☀️', badge: 'Afternoon Breath' };
     }
-    return { text: `Good evening, ${firstName}`, icon: '🌙', badge: 'Evening Peace' };
+    return { text: `Good evening, ${displayName}`, icon: '🌙', badge: 'Evening Peace' };
   };
 
   const greeting = getGreetingData();
@@ -333,14 +357,14 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
   ];
 
   return (
-    <div className={`max-w-4xl mx-auto pt-16 sm:pt-20 pb-12 px-4 space-y-10 sm:space-y-14 transition-colors duration-300 ${
+    <div className={`max-w-4xl mx-auto pt-16 sm:pt-20 pb-28 md:pb-12 px-4 space-y-10 sm:space-y-14 transition-colors duration-300 ${
       isDarkMode ? 'text-[#EDE5DB]' : 'text-[#3D2C2C]'
     }`}>
       
-      {/* 1. Warm, Expressive & Friendly Greeting */}
-      <section className="text-center space-y-3 pt-2 relative">
+      {/* 1. Warm, Expressive & Friendly Greeting — shown on Overview tab (mobile) or always (desktop) */}
+      <section className={`${activeTab === 'overview' ? '' : 'hidden'} md:block text-center space-y-3 pt-2 relative`}>
         {/* Soft decorative badge with settings shortcut */}
-        <div className="inline-flex items-center space-x-2 px-3.5 py-1 rounded-full text-xs font-medium backdrop-blur-xs transition-colors border shadow-2xs">
+        <div className="inline-flex items-center justify-center flex-wrap gap-x-2 gap-y-1 px-3.5 py-1 rounded-full text-xs font-medium backdrop-blur-xs transition-colors border shadow-2xs">
           <span className="text-xs">{greeting.icon}</span>
           <span className={isDarkMode ? 'text-[#C9BAAB]' : 'text-[#7D665B]'}>
             {greeting.badge}
@@ -349,6 +373,14 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
           <span className={`text-[11px] font-normal ${isDarkMode ? 'text-[#9E8F82]' : 'text-[#8C7A7A]'}`}>
             A safe haven for your mind
           </span>
+          {clusterLabel && (
+            <>
+              <span className="text-[10px] opacity-40">•</span>
+              <span className={`text-[11px] font-semibold ${isDarkMode ? 'text-[#E8CDAC]' : 'text-amber-700'}`}>
+                {clusterLabel}
+              </span>
+            </>
+          )}
           <span className="text-[10px] opacity-40">•</span>
           <button
             type="button"
@@ -376,8 +408,8 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
         </p>
       </section>
 
-      {/* 2. Centered Mood Check-In Card (Supports Affirmations vs Scripture) */}
-      <section className="max-w-xl mx-auto space-y-4">
+      {/* 2. Centered Mood Check-In Card (Supports Affirmations vs Scripture) — Overview tab */}
+      <section className={`max-w-xl mx-auto space-y-4 ${activeTab === 'overview' ? '' : 'hidden'} md:block`}>
         <div className={`rounded-[36px] p-7 sm:p-10 border transition-all duration-300 text-center space-y-6 hover:-translate-y-1 ${
           isDarkMode
             ? 'bg-[#221D1A]/95 backdrop-blur-md border-[#3B322B] shadow-[0_8px_32px_rgba(0,0,0,0.35)] hover:shadow-[0_16px_44px_rgba(0,0,0,0.5)]'
@@ -561,18 +593,33 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
         )}
       </section>
 
-      {/* 3. Daily Inspiration / Scripture Card (Standalone explore widget) */}
-      <section className="max-w-xl mx-auto">
+      {/* 3. Daily Inspiration / Scripture Card (Standalone explore widget) — Inspiration tab */}
+      <section className={`max-w-xl mx-auto ${activeTab === 'inspiration' ? '' : 'hidden'} md:block`}>
         <DailyInspirationCard
           inspirationSource={inspirationSource}
           currentMood={selectedMood?.category || 'quiet'}
           onOpenSettings={() => setIsSettingsOpen(true)}
           isDarkMode={isDarkMode}
         />
+        {/* On mobile, add a hint to set track/stress from here too */}
+        <div className="md:hidden mt-4 text-center">
+          <button
+            type="button"
+            onClick={() => setIsPersonalizationOpen(true)}
+            className={`inline-flex items-center space-x-1.5 px-4 py-2 rounded-full text-xs font-semibold transition-colors border cursor-pointer ${
+              isDarkMode
+                ? 'bg-[#221B17] text-[#E8CDAC] border-[#3D332B]'
+                : 'bg-white text-amber-700 border-[#ECDCC6]'
+            }`}
+          >
+            <UserPlus className="w-3.5 h-3.5" />
+            <span>Tailor this to my track</span>
+          </button>
+        </div>
       </section>
 
-      {/* 4. Three Pastel Tinted AI Companion Cards */}
-      <section className="space-y-5">
+      {/* 4. Three Pastel Tinted AI Companion Cards — Companions tab */}
+      <section className={`space-y-5 ${activeTab === 'companions' ? '' : 'hidden'} md:block`}>
         <div className="text-center space-y-1.5">
           <h2 className="text-xl sm:text-2xl font-bold tracking-tight">
             Gentle Companions
@@ -646,10 +693,69 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
         </div>
       </section>
 
-      {/* 5. Gentle Daily Encouragement Footer (Scripture or Secular Affirmation) */}
-      <footer className={`text-center pt-8 pb-4 border-t ${
-        isDarkMode ? 'border-[#332B25]' : 'border-[#EBE2D5]'
-      }`}>
+      {/* 5. Gentle Daily Encouragement Footer (Scripture or Secular Affirmation) — Resources tab */}
+      <section className={`${activeTab === 'resources' ? '' : 'hidden'} md:contents space-y-8`}>
+        {/* Quick wellness resource chips (mobile Resources tab) */}
+        <div className="md:hidden max-w-xl mx-auto space-y-4 pt-2">
+          <h2 className="text-xl font-bold tracking-tight text-center">Resources &amp; Support</h2>
+          <p className={`text-xs text-center ${isDarkMode ? 'text-[#A39486]' : 'text-[#857070]'}`}>
+            A few gentle things to reach for when you need them.
+          </p>
+          <div className="grid grid-cols-2 gap-3">
+            <button
+              type="button"
+              onClick={() => onCrisisTriggered?.(false)}
+              className={`p-4 rounded-2xl border text-left transition-all hover:-translate-y-0.5 cursor-pointer ${
+                isDarkMode ? 'bg-[#2A1D1D] border-rose-900/50' : 'bg-[#FDF3F3] border-rose-200/80'
+              }`}
+            >
+              <span className="text-2xl">🆘</span>
+              <p className="text-xs font-bold mt-2">24/7 Crisis Support</p>
+              <p className={`text-[11px] mt-0.5 leading-snug ${isDarkMode ? 'text-[#D8B9B4]' : 'text-[#A66363]'}`}>
+                Tap for hotlines &amp; guidance
+              </p>
+            </button>
+            <div className={`p-4 rounded-2xl border ${
+              isDarkMode ? 'bg-[#1A261D] border-emerald-900/40' : 'bg-[#EFF6F0] border-emerald-200/70'
+            }`}>
+              <span className="text-2xl">🌿</span>
+              <p className="text-xs font-bold mt-2">5-4-3-2-1 Grounding</p>
+              <p className={`text-[11px] mt-0.5 leading-snug ${isDarkMode ? 'text-[#A6C9B0]' : 'text-[#4F8C60]'}`}>
+                Notice 5 things you see, 4 you touch...
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => onCrisisTriggered?.(false)}
+              className={`p-4 rounded-2xl border text-left transition-all hover:-translate-y-0.5 cursor-pointer ${
+                isDarkMode ? 'bg-[#24303c] border-sky-900/40' : 'bg-[#E3EDF5] border-sky-200/70'
+              }`}
+            >
+              <span className="text-2xl">🧘</span>
+              <p className="text-xs font-bold mt-2">Calm Breathing</p>
+              <p className={`text-[11px] mt-0.5 leading-snug ${isDarkMode ? 'text-[#A9C6DB]' : 'text-[#4A7B99]'}`}>
+                A 12-second reset exercise
+              </p>
+            </button>
+            <button
+              type="button"
+              onClick={() => setIsPersonalizationOpen(true)}
+              className={`p-4 rounded-2xl border text-left transition-all hover:-translate-y-0.5 cursor-pointer ${
+                isDarkMode ? 'bg-[#2E1F16] border-amber-900/40' : 'bg-[#FDF3EB] border-amber-200/70'
+              }`}
+            >
+              <span className="text-2xl">🎯</span>
+              <p className="text-xs font-bold mt-2">Personalize</p>
+              <p className={`text-[11px] mt-0.5 leading-snug ${isDarkMode ? 'text-[#E5C49E]' : 'text-[#BF7B36]'}`}>
+                Set your track &amp; stress level
+              </p>
+            </button>
+          </div>
+        </div>
+
+        <footer className={`text-center pt-8 pb-4 border-t ${
+          isDarkMode ? 'border-[#332B25]' : 'border-[#EBE2D5]'
+        }`}>
         <p className={`text-xs sm:text-sm font-medium max-w-lg mx-auto leading-relaxed ${
           isDarkMode ? 'text-[#B0A294]' : 'text-[#7D6868]'
         }`}>
@@ -675,7 +781,23 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
             <span>About the Research Team</span>
           </button>
         )}
-      </footer>
+        </footer>
+      </section>
+
+      {/* Personalization Panel */}
+      <PersonalizationPanel
+        isOpen={isPersonalizationOpen}
+        onClose={() => setIsPersonalizationOpen(false)}
+        isDarkMode={isDarkMode}
+        academicClusterId={academicClusterId}
+        onChangeAcademicCluster={onChangeAcademicCluster}
+        stressLevel={stressLevel}
+        onChangeStressLevel={onChangeStressLevel}
+        inspirationSource={inspirationSource}
+        onChangeInspirationSource={handleUpdateInspirationSource}
+        preferredName={preferredName}
+        onChangePreferredName={onChangePreferredName}
+      />
 
       {/* Settings Modal */}
       <InspirationSettingsModal
@@ -684,6 +806,17 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
         inspirationSource={inspirationSource}
         onChangeInspirationSource={handleUpdateInspirationSource}
         isDarkMode={isDarkMode}
+      />
+
+      {/* Mobile Bottom Tab Bar (md:hidden) */}
+      <MobileTabBar
+        activeTab={activeTab}
+        onTabChange={(tab) => {
+          setActiveTab(tab);
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        }}
+        isDarkMode={isDarkMode}
+        onOpenPersonalization={() => setIsPersonalizationOpen(true)}
       />
 
     </div>

@@ -11,7 +11,7 @@ export const PersistentCrisisButton: React.FC<PersistentCrisisButtonProps> = ({
   isDarkMode = false
 }) => {
   return (
-    <div className="fixed bottom-5 right-5 z-40">
+    <div className="fixed bottom-24 md:bottom-5 right-4 md:right-5 z-40">
       <button
         type="button"
         onClick={onClick}
