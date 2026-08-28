@@ -6,30 +6,35 @@ import { GoogleGenAI } from "@google/genai";
 import { COMPANIONS, INITIAL_MOOD_LOGS, INITIAL_ANONYMOUS_MESSAGES, INITIAL_CRISIS_ALERTS, INITIAL_ANALYTICS, MOCK_USERS } from "./src/data/mockData.js";
 import { MoodLog, AnonymousMessage, CrisisAlert, CompanionId } from "./src/types.js";
 
-// Load Gemini configuration with a hard guarantee that the API key is a valid
-// non-empty string. If the key were left undefined, the @google/genai SDK would
-// silently fall back to Google Application Default Credentials (ADC) and crash
-// with "Could not load the default credentials" on machines without ADC.
-const GEMINI_API_KEY = process.env.GEMINI_API_KEY?.trim();
-if (!GEMINI_API_KEY) {
-  console.error("[C3] GEMINI_API_KEY is missing or empty in the environment (.env). Gemini chat is disabled.");
-  throw new Error("GEMINI_API_KEY is required to run the C3 AI Companion server. See .env.example.");
-}
+// Load Gemini configuration gracefully. If the API key is missing (e.g. not set
+// on Netlify), we still boot the server and render the React UI — the chat
+// endpoint returns a friendly notice instead of crashing the process. This also
+// prevents the @google/genai SDK from silently falling back to Google ADC
+// ("Could not load the default credentials") when running without credentials.
+const GEMINI_API_KEY = process.env.GEMINI_API_KEY?.trim() || "";
+const isGeminiConfigured = GEMINI_API_KEY.length > 0;
 const GEMINI_MODEL = process.env.GEMINI_MODEL?.trim() || "gemini-2.5-flash";
 const GEMINI_TEMPERATURE = Number(process.env.GEMINI_TEMPERATURE ?? 0.7);
 
-console.log(`[C3] Gemini client ready (model: ${GEMINI_MODEL}, temperature: ${GEMINI_TEMPERATURE})`);
+if (isGeminiConfigured) {
+  console.log(`[C3] Gemini client ready (model: ${GEMINI_MODEL}, temperature: ${GEMINI_TEMPERATURE})`);
+} else {
+  console.warn("[C3] GEMINI_API_KEY is missing or empty. The UI will still render, but AI chat replies are disabled until a key is configured.");
+}
 
 // Initialize Gemini Client server-side with explicit API key pass-through so the
-// SDK never attempts Google Application Default Credentials fallback.
-const ai = new GoogleGenAI({
-  apiKey: GEMINI_API_KEY,
-  httpOptions: {
-    headers: {
-      'User-Agent': 'aistudio-build',
-    }
-  }
-});
+// SDK never attempts Google Application Default Credentials fallback. When the
+// key is absent we keep the client null and guard every request instead.
+const ai = isGeminiConfigured
+  ? new GoogleGenAI({
+      apiKey: GEMINI_API_KEY,
+      httpOptions: {
+        headers: {
+          'User-Agent': 'aistudio-build',
+        }
+      }
+    })
+  : null;
 
 // Server State Storage for active prototype session
 let moodLogs: MoodLog[] = [...INITIAL_MOOD_LOGS];
@@ -213,59 +218,66 @@ async function startServer() {
         return null;
       };
 
-      try {
-        const response = await ai.models.generateContent({
-          model: GEMINI_MODEL,
-          contents: formattedContents,
-          config: {
-            systemInstruction: companion.systemPrompt,
-            temperature: GEMINI_TEMPERATURE,
-          }
-        });
-
-        const modelText = extractGeminiText(response);
-        if (modelText) {
-          botReply = modelText;
-        } else {
-          // A valid API response arrived but contained no usable text. Log it
-          // (with filtering info when present) and reply with a soft,
-          // companion-specific line rather than the generic error template.
-          console.warn(`[C3] Empty model output for ${companion.name} (${companion.id}). promptFeedback:`, JSON.stringify(response?.promptFeedback ?? null));
-          botReply = `${companion.name} took a quiet pause and wants you to know you are not alone. Cabiao SHS guidance counselors are always here for you too — would you like to try again with a few more words?`;
-        }
-
-        if (botReply.includes("[CRISIS_ALERT]")) {
-          if (!detectedTier || detectedTier < 3) {
-            detectedTier = 3;
-            detectedTriggerPhrase = detectedTriggerPhrase || "High distress detected by AI companion";
-          }
-          botReply = botReply.replace("[CRISIS_ALERT]", "").trim();
-        }
-      } catch (geminiError: any) {
-        const errInfo: any = {
-          name: geminiError?.name,
-          message: geminiError?.message,
-          status: geminiError?.status,
-          code: geminiError?.code,
-          details: geminiError?.details,
-          httpStatus: geminiError?.sdkHttpResponse?.status,
-          model: GEMINI_MODEL,
-          companionId: companion.id,
-        };
-        if (geminiError?.stack) errInfo.stack = String(geminiError.stack).split('\n').slice(0, 3).join(' | ');
-        console.error("[C3] Gemini API Error:", JSON.stringify(errInfo, null, 2));
-        console.error("[C3] Gemini API raw error object:", geminiError);
-
-        if (geminiError?.message) {
-          try {
-            const parsed = JSON.parse(geminiError.message);
-            if (parsed?.error) {
-              console.error("[C3] Gemini API error payload:", JSON.stringify(parsed.error, null, 2));
+      if (!ai) {
+        // Gemini is not configured (e.g. GEMINI_API_KEY missing on Netlify).
+        // Reply with a friendly notice so students still get a response.
+        console.warn(`[C3] Chat request for ${companion.id} skipped — Gemini not configured.`);
+        botReply = `[${companion.name}] I am here with you, but my AI engine is taking a little break right now. Please remember our Cabiao SHS guidance counselors are always available for you too.`;
+      } else {
+        try {
+          const response = await ai.models.generateContent({
+            model: GEMINI_MODEL,
+            contents: formattedContents,
+            config: {
+              systemInstruction: companion.systemPrompt,
+              temperature: GEMINI_TEMPERATURE,
             }
-          } catch { /* plain message already logged */ }
-        }
+          });
 
-        botReply = `[${companion.name}] I hear how important this is to you. I am always listening, and please remember our Cabiao SHS guidance counselors are also here for you.`;
+          const modelText = extractGeminiText(response);
+          if (modelText) {
+            botReply = modelText;
+          } else {
+            // A valid API response arrived but contained no usable text. Log it
+            // (with filtering info when present) and reply with a soft,
+            // companion-specific line rather than the generic error template.
+            console.warn(`[C3] Empty model output for ${companion.name} (${companion.id}). promptFeedback:`, JSON.stringify(response?.promptFeedback ?? null));
+            botReply = `${companion.name} took a quiet pause and wants you to know you are not alone. Cabiao SHS guidance counselors are always here for you too — would you like to try again with a few more words?`;
+          }
+
+          if (botReply.includes("[CRISIS_ALERT]")) {
+            if (!detectedTier || detectedTier < 3) {
+              detectedTier = 3;
+              detectedTriggerPhrase = detectedTriggerPhrase || "High distress detected by AI companion";
+            }
+            botReply = botReply.replace("[CRISIS_ALERT]", "").trim();
+          }
+        } catch (geminiError: any) {
+          const errInfo: any = {
+            name: geminiError?.name,
+            message: geminiError?.message,
+            status: geminiError?.status,
+            code: geminiError?.code,
+            details: geminiError?.details,
+            httpStatus: geminiError?.sdkHttpResponse?.status,
+            model: GEMINI_MODEL,
+            companionId: companion.id,
+          };
+          if (geminiError?.stack) errInfo.stack = String(geminiError.stack).split('\n').slice(0, 3).join(' | ');
+          console.error("[C3] Gemini API Error:", JSON.stringify(errInfo, null, 2));
+          console.error("[C3] Gemini API raw error object:", geminiError);
+
+          if (geminiError?.message) {
+            try {
+              const parsed = JSON.parse(geminiError.message);
+              if (parsed?.error) {
+                console.error("[C3] Gemini API error payload:", JSON.stringify(parsed.error, null, 2));
+              }
+            } catch { /* plain message already logged */ }
+          }
+
+          botReply = `[${companion.name}] I hear how important this is to you. I am always listening, and please remember our Cabiao SHS guidance counselors are also here for you.`;
+        }
       }
 
       // Data Rules Execution per Tier:
