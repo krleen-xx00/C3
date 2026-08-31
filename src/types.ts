@@ -1,3 +1,19 @@
+export interface CounselorUser {
+  id: string;
+  name: string;
+  email: string;
+  title: string; // e.g. "Head Guidance Counselor, RGC"
+  licenseNo?: string; // e.g. "PRC RGC-004921"
+  department: string; // e.g. "Guidance & Counseling Services Office"
+  assignedCluster?: string; // e.g. "All SHS Academic & TechPro Clusters"
+  avatar?: string;
+  initials: string;
+  phoneNumber?: string;
+  dutyHours?: string;
+  joinedDate?: string;
+  status?: 'active' | 'on_duty' | 'in_session';
+}
+
 export type UserRole = 'student' | 'counselor';
 
 export type InspirationSource = 'affirmations' | 'scripture';

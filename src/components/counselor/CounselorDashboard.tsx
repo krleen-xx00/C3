@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
   ShieldAlert,
@@ -15,7 +15,11 @@ import {
   Check,
   Clock,
   Sparkles,
-  Info
+  Info,
+  LogOut,
+  UserCheck,
+  Building2,
+  FileBadge
 } from 'lucide-react';
 import {
   ResponsiveContainer,
@@ -29,6 +33,14 @@ import {
   CartesianGrid,
   Legend
 } from 'recharts';
+import { CounselorUser } from '../../types';
+import {
+  getActiveCounselorSession,
+  setActiveCounselorSession,
+  DEFAULT_COUNSELORS
+} from '../../data/counselorData';
+import { CounselorAuthView } from './CounselorAuthView';
+import { CounselorProfileModal } from './CounselorProfileModal';
 
 export interface CounselorAlert {
   id: string;
@@ -40,6 +52,8 @@ export interface CounselorAlert {
   flagReason: string;
   status: 'active' | 'contacted' | 'resolved';
   resolvedAt?: string;
+  handledBy?: string;
+  resolvedBy?: string;
 }
 
 const INITIAL_COUNSELOR_ALERTS: CounselorAlert[] = [
@@ -175,17 +189,37 @@ interface CounselorDashboardProps {
 }
 
 export const CounselorDashboard: React.FC<CounselorDashboardProps> = ({ isDarkMode }) => {
+  // Counselor Authentication State
+  const [activeCounselor, setActiveCounselor] = useState<CounselorUser | null>(() => {
+    return getActiveCounselorSession();
+  });
+  const [isProfileModalOpen, setIsProfileModalOpen] = useState<boolean>(false);
+
   const [activeViewTab, setActiveViewTab] = useState<'alerts' | 'trends'>('alerts');
   const [alertsSubTab, setAlertsSubTab] = useState<'active' | 'resolved'>('active');
   const [alerts, setAlerts] = useState<CounselorAlert[]>(INITIAL_COUNSELOR_ALERTS);
   const [selectedChartRange, setSelectedChartRange] = useState<'weekly' | 'daily'>('weekly');
+
+  const handleLoginSuccess = (counselor: CounselorUser) => {
+    setActiveCounselor(counselor);
+    setActiveCounselorSession(counselor);
+  };
+
+  const handleSignOut = () => {
+    setActiveCounselor(null);
+    setActiveCounselorSession(null);
+  };
 
   const handleMarkAsContacted = (alertId: string) => {
     setAlerts(prev =>
       prev.map(a => {
         if (a.id === alertId) {
           const nextStatus = a.status === 'contacted' ? 'active' : 'contacted';
-          return { ...a, status: nextStatus };
+          return {
+            ...a,
+            status: nextStatus,
+            handledBy: nextStatus === 'contacted' ? (activeCounselor?.name || 'Assigned Counselor') : undefined
+          };
         }
         return a;
       })
@@ -199,7 +233,8 @@ export const CounselorDashboard: React.FC<CounselorDashboardProps> = ({ isDarkMo
           return {
             ...a,
             status: 'resolved',
-            resolvedAt: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+            resolvedAt: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+            resolvedBy: activeCounselor?.name || 'Guidance Counselor'
           };
         }
         return a;
@@ -211,12 +246,22 @@ export const CounselorDashboard: React.FC<CounselorDashboardProps> = ({ isDarkMo
     setAlerts(prev =>
       prev.map(a => {
         if (a.id === alertId) {
-          return { ...a, status: 'active', resolvedAt: undefined };
+          return { ...a, status: 'active', resolvedAt: undefined, resolvedBy: undefined };
         }
         return a;
       })
     );
   };
+
+  // If counselor is not logged in, show the Login & Sign Up page
+  if (!activeCounselor) {
+    return (
+      <CounselorAuthView
+        isDarkMode={isDarkMode}
+        onLoginSuccess={handleLoginSuccess}
+      />
+    );
+  }
 
   // Active alerts: sort by urgency first (high_priority before student_requested), then by recency
   const activeAlerts = alerts
@@ -237,52 +282,124 @@ export const CounselorDashboard: React.FC<CounselorDashboardProps> = ({ isDarkMo
   return (
     <div className="w-full max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 pt-20 sm:pt-24 pb-16 space-y-6">
       
-      {/* Counselor View Header Bar */}
+      {/* Counselor View Header Bar with Active Logged-in Counselor Details */}
       <div
         id="counselor-header-bar"
-        className={`p-4 sm:p-5 rounded-2xl border transition-all duration-300 shadow-xs ${
+        className={`p-4 sm:p-5 rounded-3xl border transition-all duration-300 shadow-sm ${
           isDarkMode
             ? 'bg-[#221C18] border-[#382E27] text-[#EDE5DB]'
             : 'bg-white border-[#E8DDD0] text-[#3D2C2C]'
         }`}
       >
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+          
           {/* Left branding */}
-          <div className="flex items-center space-x-2.5">
-            <span
-              className={`text-sm sm:text-base font-bold tracking-tight ${
-                isDarkMode ? 'text-[#EDE5DB]' : 'text-[#3D2C2C]'
-              }`}
-            >
-              Cabiao National Senior High School
-            </span>
-            <span
-              className={`px-2.5 py-0.5 text-[11px] font-bold uppercase tracking-wider rounded-md border ${
-                isDarkMode
-                  ? 'bg-[#362719] text-[#E0A868] border-[#593E25]'
-                  : 'bg-[#FFF6EC] text-[#9E632B] border-[#F2DAC4]'
-              }`}
-            >
-              Guidance Counselor Portal
-            </span>
+          <div className="flex items-center space-x-3">
+            <div className="w-10 h-10 rounded-full p-0.5 bg-white ring-1 ring-amber-500/30 flex items-center justify-center shrink-0 shadow-xs">
+              <img
+                src="/logo.jpg"
+                alt="School Seal"
+                className="w-full h-full object-contain rounded-full"
+              />
+            </div>
+            <div>
+              <div className="flex items-center space-x-2 flex-wrap">
+                <span
+                  className={`text-sm sm:text-base font-black tracking-tight ${
+                    isDarkMode ? 'text-[#EDE5DB]' : 'text-[#3D2C2C]'
+                  }`}
+                >
+                  Cabiao National Senior High School
+                </span>
+                <span
+                  className={`px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider rounded-md border ${
+                    isDarkMode
+                      ? 'bg-[#362719] text-[#E0A868] border-[#593E25]'
+                      : 'bg-[#FFF6EC] text-[#9E632B] border-[#F2DAC4]'
+                  }`}
+                >
+                  Guidance Counselor Portal
+                </span>
+              </div>
+              <p className={`text-[11px] font-medium ${isDarkMode ? 'text-[#A09080]' : 'text-[#7D6B5E]'}`}>
+                {activeCounselor.department} • 📍 {activeCounselor.assignedCluster || 'All Clusters'}
+              </p>
+            </div>
           </div>
 
-          {/* Right counselor profile */}
-          <div className="flex items-center space-x-2">
-            <div
-              className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold ${
-                isDarkMode ? 'bg-[#3A2F27] text-[#D8C29D]' : 'bg-[#EFE4D6] text-[#634848]'
+          {/* Right: Active Counselor Card with Profile & Sign Out Actions */}
+          <div className="flex items-center space-x-2 self-start lg:self-center flex-wrap gap-y-2">
+            
+            {/* Clickable Counselor Badge */}
+            <button
+              type="button"
+              onClick={() => setIsProfileModalOpen(true)}
+              className={`p-1.5 pr-3 rounded-2xl border transition-all duration-200 cursor-pointer flex items-center space-x-2.5 text-left group ${
+                isDarkMode
+                  ? 'bg-[#2B231D] hover:bg-[#352B23] border-[#44362B] text-[#EDE5DB]'
+                  : 'bg-[#FAF6F0] hover:bg-[#F3EBE0] border-[#EAE0D2] text-[#3D2C2C]'
               }`}
+              title="Click to view counselor credentials and license information"
             >
-              ER
-            </div>
-            <span
-              className={`text-xs sm:text-[13px] font-medium ${
-                isDarkMode ? 'text-[#C9BAAB]' : 'text-[#5E4747]'
+              <div className="relative">
+                <div
+                  className={`w-8 h-8 rounded-xl flex items-center justify-center text-xs font-black shadow-xs ${
+                    isDarkMode
+                      ? 'bg-[#3E2E21] text-[#F3D5B5] ring-1 ring-[#5C4533]'
+                      : 'bg-[#EBDCCB] text-[#5C3B20] ring-1 ring-[#D8C2AA]'
+                  }`}
+                >
+                  {activeCounselor.initials}
+                </div>
+                <span
+                  className="w-2.5 h-2.5 rounded-full bg-emerald-500 absolute -bottom-0.5 -right-0.5 ring-2 ring-white dark:ring-[#2B231D]"
+                  title="On Duty"
+                />
+              </div>
+
+              <div className="min-w-0">
+                <div className="flex items-center space-x-1.5">
+                  <span className="text-xs sm:text-[13px] font-extrabold truncate group-hover:text-amber-700 dark:group-hover:text-amber-300">
+                    {activeCounselor.name}
+                  </span>
+                  <span className="text-[10px] px-1.5 py-0.2 rounded font-bold bg-emerald-500/15 text-emerald-600 dark:text-emerald-400">
+                    Active
+                  </span>
+                </div>
+                <p className={`text-[10px] truncate ${isDarkMode ? 'text-[#A09080]' : 'text-[#7D6B5E]'}`}>
+                  {activeCounselor.title} • {activeCounselor.licenseNo || 'RGC Verified'}
+                </p>
+              </div>
+            </button>
+
+            {/* Profile modal toggle */}
+            <button
+              type="button"
+              onClick={() => setIsProfileModalOpen(true)}
+              className={`p-2 rounded-xl border text-xs font-bold transition-all cursor-pointer ${
+                isDarkMode
+                  ? 'bg-[#2B231D] hover:bg-[#352B23] border-[#44362B] text-[#C9BAAB]'
+                  : 'bg-white hover:bg-[#FAF4EB] border-[#D8C6B2] text-[#5E4747]'
               }`}
+              title="Counselor Profile & Credentials"
             >
-              Mrs. Elena M. Reyes, RGC — Head Guidance Counselor
-            </span>
+              <UserCheck className="w-4 h-4" />
+            </button>
+
+            {/* Switch / Sign Out Button */}
+            <button
+              type="button"
+              onClick={handleSignOut}
+              className={`px-3 py-2 rounded-xl text-xs font-bold border transition-all flex items-center space-x-1.5 cursor-pointer ${
+                isDarkMode
+                  ? 'bg-[#2A1D1B] hover:bg-[#382320] border-[#4A2621] text-[#FCA5A5]'
+                  : 'bg-[#FFF5F5] hover:bg-[#FEE2E2] border-[#FBD5D5] text-[#DC2626]'
+              }`}
+              title="Sign out or switch counselor"
+            >
+              <LogOut className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Sign Out</span>
+            </button>
           </div>
         </div>
       </div>
@@ -349,7 +466,7 @@ export const CounselorDashboard: React.FC<CounselorDashboardProps> = ({ isDarkMo
           }`}
         >
           <Lock className="w-3.5 h-3.5 opacity-80" />
-          <span>Confidential Triage & Anonymized Aggregates</span>
+          <span>Confidential Triage &amp; Anonymized Aggregates</span>
         </div>
       </div>
 
@@ -499,7 +616,7 @@ export const CounselorDashboard: React.FC<CounselorDashboardProps> = ({ isDarkMo
                             {isContacted && (
                               <span className="px-2 py-0.5 rounded text-[11px] font-bold bg-blue-500/15 text-blue-600 dark:text-blue-400 border border-blue-500/30 flex items-center space-x-1">
                                 <PhoneCall className="w-3 h-3" />
-                                <span>Contacted</span>
+                                <span>Contacted {alert.handledBy ? `by ${alert.handledBy}` : ''}</span>
                               </span>
                             )}
                           </div>
@@ -598,8 +715,8 @@ export const CounselorDashboard: React.FC<CounselorDashboardProps> = ({ isDarkMo
                             {alert.gradeSection}
                           </span>
                           {alert.resolvedAt && (
-                            <span className="text-[11px] opacity-70">
-                              (Resolved at {alert.resolvedAt})
+                            <span className="text-[11px] opacity-75">
+                              (Resolved at {alert.resolvedAt} {alert.resolvedBy ? `by ${alert.resolvedBy}` : ''})
                             </span>
                           )}
                         </div>
@@ -648,7 +765,7 @@ export const CounselorDashboard: React.FC<CounselorDashboardProps> = ({ isDarkMo
                 <span>School-Wide Mood Check-In Distribution</span>
               </h3>
               <p className={`text-xs mt-0.5 ${isDarkMode ? 'text-[#A8988A]' : 'text-[#7D6666]'}`}>
-                Strictly anonymized, population-level telemetry across Cabiao SHS Grade 11 & Grade 12 cohorts.
+                Strictly anonymized, population-level telemetry across Cabiao SHS Grade 11 &amp; Grade 12 cohorts.
               </p>
             </div>
 
@@ -709,7 +826,7 @@ export const CounselorDashboard: React.FC<CounselorDashboardProps> = ({ isDarkMo
               }`}
             >
               <span className={`text-[11px] font-semibold uppercase tracking-wider ${isDarkMode ? 'text-[#8A796B]' : 'text-[#8C7575]'}`}>
-                Warm & Joyful Ratio
+                Warm &amp; Joyful Ratio
               </span>
               <p className={`text-xl sm:text-2xl font-black mt-1 text-emerald-500`}>
                 64.2%
@@ -828,6 +945,15 @@ export const CounselorDashboard: React.FC<CounselorDashboardProps> = ({ isDarkMo
 
         </div>
       )}
+
+      {/* Counselor Profile Details Modal */}
+      <CounselorProfileModal
+        isOpen={isProfileModalOpen}
+        onClose={() => setIsProfileModalOpen(false)}
+        counselor={activeCounselor}
+        isDarkMode={isDarkMode}
+        onSignOut={handleSignOut}
+      />
 
     </div>
   );

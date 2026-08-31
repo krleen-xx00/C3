@@ -27,10 +27,10 @@ export const ViewSwitcher: React.FC<ViewSwitcherProps> = ({
       role="tablist"
       aria-label="Application View Switcher"
     >
-      {/* 1. Student View Tab */}
+      {/* 1. Wellness Tab */}
       <button
         type="button"
-        id="btn-student-view"
+        id="btn-wellness-view"
         role="tab"
         aria-selected={viewMode === 'student'}
         onClick={() => onViewChange('student')}
@@ -45,8 +45,7 @@ export const ViewSwitcher: React.FC<ViewSwitcherProps> = ({
         }`}
       >
         <Sparkles className={`w-3.5 h-3.5 ${viewMode === 'student' ? 'text-amber-500' : ''}`} />
-        <span className="hidden md:inline">Student View</span>
-        <span className="inline md:hidden">Student</span>
+        <span>Wellness</span>
       </button>
 
       {/* 2. Counselor View Tab (Placed right beside Student View) */}
