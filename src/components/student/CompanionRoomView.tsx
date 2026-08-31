@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { User, CompanionId, ChatMessage, MoodLog, RiskTier, AcademicClusterId, UserStressLevel } from '../../types';
 import { COMPANIONS } from '../../data/mockData';
 import { getClusterById } from '../../data/academicTracks';
-import { Send, ArrowLeft, GraduationCap, Heart, Target, RefreshCw, Sparkles, BookOpen, Zap } from 'lucide-react';
+import { Send, ArrowLeft, GraduationCap, Heart, Target, RefreshCw, Sparkles, BookOpen, Zap, Wind } from 'lucide-react';
 import { TieredResourceCard } from './TieredResourceCard';
 import { classifyRisk } from '../../utils/riskClassifier';
 
@@ -27,62 +27,62 @@ interface ChatTabDef {
   companionId: CompanionId;
   label: string;
   shortLabel: string;
+  role: string;
   icon: React.ReactNode;
   description: string;
+  tagColor: string;
 }
 
 const CHAT_TABS: ChatTabDef[] = [
   {
-    id: 'academic',
-    companionId: 'cali',
-    label: 'Academic & Career',
-    shortLabel: 'Academic',
-    icon: <GraduationCap className="w-4 h-4" />,
-    description: 'SHS subjects, ICT/TechPro tasks, research & study guides'
-  },
-  {
     id: 'wellness',
     companionId: 'casti',
-    label: 'Wellness & Support',
-    shortLabel: 'Wellness',
+    label: 'Casti',
+    shortLabel: 'Casti',
+    role: 'Wellness & Support',
     icon: <Heart className="w-4 h-4" />,
-    description: 'Stress relief, personal talk, daily encouragement & well-being'
+    description: 'Gentle peer supporter • Stress relief, reflection & comfort',
+    tagColor: 'bg-purple-500/15 text-purple-700 dark:text-purple-300 border-purple-500/20'
   },
   {
     id: 'skill',
     companionId: 'cedi',
-    label: 'Skill & Practice',
-    shortLabel: 'Skill',
+    label: 'Cedi',
+    shortLabel: 'Cedi',
+    role: 'Skill & Practice',
     icon: <Target className="w-4 h-4" />,
-    description: 'Interactive quizzes, custom practice & your preferences'
+    description: 'Interactive quiz coach • Drills, concept review & creativity',
+    tagColor: 'bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500/20'
+  },
+  {
+    id: 'academic',
+    companionId: 'cali',
+    label: 'Cali',
+    shortLabel: 'Cali',
+    role: 'Academic & Career',
+    icon: <GraduationCap className="w-4 h-4" />,
+    description: 'Academic guide • SHS subjects, ICT/TechPro tasks & research',
+    tagColor: 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/20'
   }
 ];
 
-const TAB_TO_COMPANION: Record<ChatTabId, CompanionId> = {
-  academic: 'cali',
-  wellness: 'casti',
-  skill: 'cedi'
-};
-
 const COMPANION_TO_TAB: Record<CompanionId, ChatTabId> = {
-  cali: 'academic',
   casti: 'wellness',
-  cedi: 'skill'
+  cedi: 'skill',
+  cali: 'academic'
 };
 
 const SKILL_QUICK_PROMPTS = [
-  'Quiz me on loops and functions in programming.',
-  'Give me a 5-question quiz on HTML and CSS basics.',
-  'Test me on computer networking fundamentals.',
-  'Make a practice set for my upcoming math summative.',
-  'Quiz me on programming logic and variables.'
+  'Quiz me on programming logic & loops',
+  'Give me a 5-question quiz on Web Dev basics',
+  'Test me on computer networking fundamentals',
+  'Help me structure my research paper'
 ];
 
 export const CompanionRoomView: React.FC<CompanionRoomViewProps> = ({
   currentUser,
   companionId,
   isDarkMode = false,
-  latestMoodLog,
   onBackToDashboard,
   onSwitchCompanionRoom,
   onCrisisTriggered,
@@ -102,10 +102,16 @@ export const CompanionRoomView: React.FC<CompanionRoomViewProps> = ({
   const [activeInlineRiskTier, setActiveInlineRiskTier] = useState<{ tier: RiskTier; context: string } | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  // Map the incoming companion to a tab immediately (no refresh / no page reload)
+  // Map the incoming companion to a tab immediately
   const [activeTab, setActiveTab] = useState<ChatTabId>(() => COMPANION_TO_TAB[companionId] || 'wellness');
 
-  const activeTabDef = CHAT_TABS.find(t => t.id === activeTab) || CHAT_TABS[1];
+  useEffect(() => {
+    if (companionId && COMPANION_TO_TAB[companionId]) {
+      setActiveTab(COMPANION_TO_TAB[companionId]);
+    }
+  }, [companionId]);
+
+  const activeTabDef = CHAT_TABS.find(t => t.id === activeTab) || CHAT_TABS[0];
   const activeCompanionId: CompanionId = activeTabDef.companionId;
   const activeCompanion = COMPANIONS.find(c => c.id === activeCompanionId) || COMPANIONS[0];
 
@@ -154,7 +160,6 @@ export const CompanionRoomView: React.FC<CompanionRoomViewProps> = ({
     setActiveTab(tab.id);
     setShowBreathingTool(false);
     setActiveInlineRiskTier(null);
-    // Keep App state in sync so navigation context is preserved
     onSwitchCompanionRoom(tab.companionId);
   };
 
@@ -183,7 +188,6 @@ export const CompanionRoomView: React.FC<CompanionRoomViewProps> = ({
     setInputText('');
     setIsLoading(true);
 
-    // If local check detects Tier 3, trigger full-screen crisis interstitial immediately
     if (localRiskCheck?.tier === 3) {
       onCrisisTriggered(true);
     } else if (localRiskCheck?.tier === 1 || localRiskCheck?.tier === 2) {
@@ -227,7 +231,6 @@ export const CompanionRoomView: React.FC<CompanionRoomViewProps> = ({
         [activeCompanionId]: [...(prev[activeCompanionId] || []), botMsg]
       }));
 
-      // Handle Tier Responses
       if (serverTier === 3 || data.isCrisisTriggered) {
         onCrisisTriggered(true);
       } else if (serverTier === 2 || serverTier === 1) {
@@ -274,311 +277,297 @@ export const CompanionRoomView: React.FC<CompanionRoomViewProps> = ({
   // Theme styling for Day & Night modes
   const themeStyles = {
     casti: {
-      topHeaderBg: isDarkMode
-        ? 'bg-gradient-to-r from-[#1F1B2B] to-[#251F33] border-[#382E4F]'
-        : 'bg-gradient-to-r from-[#F5F0FA] to-[#EDE5F8] border-[#E4D7F2]',
-      accentText: isDarkMode ? 'text-[#BCA3E6]' : 'text-[#7D5EAA]',
+      accentColor: 'text-[#7D5EAA] dark:text-[#CDB4EC]',
+      activeTabBg: isDarkMode
+        ? 'bg-[#2D1F3B] text-[#F3E8FF] ring-1 ring-[#5E3D80] shadow-sm'
+        : 'bg-[#F4EDFA] text-[#4A2D6E] ring-1 ring-[#D8C7F0] shadow-xs',
       userBubble: isDarkMode ? 'bg-[#6A4D94] text-white' : 'bg-[#8A67B8] text-white shadow-xs',
       botBubble: isDarkMode ? 'bg-[#261E33] text-[#EDE5DB] border border-[#3E3154]' : 'bg-white text-[#3D2C2C] border border-[#EDE4F7] shadow-xs',
       buttonBg: isDarkMode ? 'bg-[#6A4D94] hover:bg-[#5C4182] text-white' : 'bg-[#8A67B8] hover:bg-[#7854A6] text-white',
       promptPill: isDarkMode
         ? 'bg-[#221A2E] hover:bg-[#2E233E] text-[#D8C7F0] border-[#3D2F54]'
         : 'bg-white hover:bg-[#F5F0FA] text-[#6E5496] border-[#E4D7F2] shadow-2xs',
-      roomTitle: "Wellness & Support",
-      subTitle: "Gentle Peer Supporter • Stress relief, talking it out & daily encouragement",
-      avatarBg: isDarkMode ? 'bg-[#2D2440] text-[#D8C7F0] ring-2 ring-[#3D3057]' : 'bg-white text-[#6E5496] ring-2 ring-[#EADBFA]'
+      avatarBg: isDarkMode ? 'bg-[#2D2440] text-[#D8C7F0] ring-2 ring-[#3D3057]' : 'bg-[#F4EDFA] text-[#6E5496] ring-2 ring-[#EADBFA]'
     },
     cedi: {
-      topHeaderBg: isDarkMode
-        ? 'bg-gradient-to-r from-[#2E2017] to-[#36261B] border-[#4E3524]'
-        : 'bg-gradient-to-r from-[#FDF3EB] to-[#FAECE0] border-[#F5DCBE]',
-      accentText: isDarkMode ? 'text-[#E8AF7D]' : 'text-[#BF7B36]',
+      accentColor: 'text-[#BF7B36] dark:text-[#F2C9A3]',
+      activeTabBg: isDarkMode
+        ? 'bg-[#362416] text-[#FDF0E3] ring-1 ring-[#6E4221] shadow-sm'
+        : 'bg-[#FDF3E7] text-[#6B4219] ring-1 ring-[#F5DCBC] shadow-xs',
       userBubble: isDarkMode ? 'bg-[#B07238] text-white' : 'bg-[#D68B45] text-white shadow-xs',
       botBubble: isDarkMode ? 'bg-[#302118] text-[#EDE5DB] border border-[#4F3626]' : 'bg-white text-[#3D2C2C] border border-[#F5E6D6] shadow-xs',
       buttonBg: isDarkMode ? 'bg-[#B07238] hover:bg-[#9C622D] text-white' : 'bg-[#D68B45] hover:bg-[#C27832] text-white',
       promptPill: isDarkMode
         ? 'bg-[#281A12] hover:bg-[#382418] text-[#F5C79E] border-[#4E3220]'
         : 'bg-white hover:bg-[#FDF3EB] text-[#A6692E] border-[#F5DCBE] shadow-2xs',
-      roomTitle: "Skill & Practice",
-      subTitle: "Interactive Quiz & Practice Coach • Quiz, drills & concept review",
-      avatarBg: isDarkMode ? 'bg-[#3D281C] text-[#F5C79E] ring-2 ring-[#573926]' : 'bg-white text-[#B5783A] ring-2 ring-[#FCE5CF]'
+      avatarBg: isDarkMode ? 'bg-[#3D281C] text-[#F5C79E] ring-2 ring-[#573926]' : 'bg-[#FDF3E7] text-[#B5783A] ring-2 ring-[#FCE5CF]'
     },
     cali: {
-      topHeaderBg: isDarkMode
-        ? 'bg-gradient-to-r from-[#1A261D] to-[#1F2F23] border-[#2B4232]'
-        : 'bg-gradient-to-r from-[#EFF6F0] to-[#E3EFE5] border-[#D3E7D6]',
-      accentText: isDarkMode ? 'text-[#96D1A2]' : 'text-[#4F8C60]',
+      accentColor: 'text-[#3E7D50] dark:text-[#A4DCB0]',
+      activeTabBg: isDarkMode
+        ? 'bg-[#1C2C20] text-[#E5F7E9] ring-1 ring-[#2E5E3C] shadow-sm'
+        : 'bg-[#EBF7EF] text-[#20542F] ring-1 ring-[#D2EBD9] shadow-xs',
       userBubble: isDarkMode ? 'bg-[#4B855B] text-white' : 'bg-[#619E72] text-white shadow-xs',
       botBubble: isDarkMode ? 'bg-[#1C2C20] text-[#EDE5DB] border border-[#2F4736]' : 'bg-white text-[#3D2C2C] border border-[#E0EFE3] shadow-xs',
       buttonBg: isDarkMode ? 'bg-[#4B855B] hover:bg-[#3F724D] text-white' : 'bg-[#619E72] hover:bg-[#508B60] text-white',
       promptPill: isDarkMode
         ? 'bg-[#152418] hover:bg-[#1E3323] text-[#A6DCB1] border-[#29422F]'
         : 'bg-white hover:bg-[#EFF6F0] text-[#3E734D] border-[#D3E7D6] shadow-2xs',
-      roomTitle: "Academic & Career",
-      subTitle: "Academic & Action Guide • Subjects, ICT/TechPro tasks, research & study plans",
-      avatarBg: isDarkMode ? 'bg-[#233527] text-[#A6DCB1] ring-2 ring-[#314D37]' : 'bg-white text-[#4A855A] ring-2 ring-[#D8EDE0]'
+      avatarBg: isDarkMode ? 'bg-[#233527] text-[#A6DCB1] ring-2 ring-[#314D37]' : 'bg-[#EBF7EF] text-[#4A855A] ring-2 ring-[#D8EDE0]'
     }
   }[activeCompanionId];
 
   return (
-    <div className={`relative md:max-w-4xl mx-auto md:pt-6 px-3 sm:px-4 flex flex-col h-dvh md:h-auto overflow-hidden space-y-3 transition-colors duration-300 ${
-      isDarkMode ? 'text-[#EDE5DB]' : 'text-[#3D2C2C]'
-    }`}>
+    <div
+      id="companions-hub-view"
+      className={`relative w-full max-w-6xl mx-auto pt-16 md:pt-4 px-3 sm:px-6 h-[calc(100dvh-1rem)] md:h-screen flex flex-col justify-between overflow-hidden select-none transition-colors duration-300 ${
+        isDarkMode ? 'text-[#EDE5DB]' : 'text-[#3D2C2C]'
+      }`}
+    >
+      {/* 1. TOP COMPANION PICKER BAR (Casti, Cedi, Cali) */}
+      <div className="flex-shrink-0 space-y-2 mb-2">
+        {/* Sub-header row with quick back to dashboard and cluster badge */}
+        <div className="flex items-center justify-between gap-2">
+          <button
+            type="button"
+            onClick={onBackToDashboard}
+            className={`inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-full text-xs font-semibold tracking-tight transition-all duration-200 cursor-pointer border shadow-2xs ${
+              isDarkMode
+                ? 'text-[#D0C0B0] bg-[#221C18] border-[#3D332B] hover:bg-[#2C241F] hover:text-white'
+                : 'text-[#6D5A50] bg-white border-[#E9DFD2] hover:bg-[#F8F3ED] hover:text-[#3D2C2C]'
+            }`}
+          >
+            <ArrowLeft className="w-3.5 h-3.5" />
+            <span>Back to Dashboard</span>
+          </button>
 
-      {/* Top action row: Back + track context */}
-      <div className="flex items-center justify-between gap-3 pt-12 md:pt-0 flex-shrink-0">
-        <button
-          type="button"
-          onClick={onBackToDashboard}
-          className={`p-2.5 rounded-2xl border transition-all flex items-center space-x-1.5 text-xs font-semibold shadow-2xs hover:scale-102 cursor-pointer ${
+          <div className="flex items-center space-x-2">
+            <span className={`inline-flex items-center space-x-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold border ${
+              isDarkMode ? 'bg-[#221B17] text-[#E8CDAC] border-[#3D332B]' : 'bg-white text-amber-800 border-[#ECDCC6]'
+            }`}>
+              <Sparkles className="w-3 h-3 text-amber-500" />
+              <span>{getClusterById(academicClusterId)?.shortLabel || 'SHS Student'} • Stress: {stressLevel}/10</span>
+            </span>
+          </div>
+        </div>
+
+        {/* 3 Companion Selection Cards (1-Click Switcher) */}
+        <div
+          role="tablist"
+          aria-label="AI Companion Picker"
+          className={`grid grid-cols-3 gap-1.5 sm:gap-2.5 p-1 sm:p-1.5 rounded-2xl sm:rounded-3xl border shadow-xs backdrop-blur-md ${
             isDarkMode
-              ? 'bg-[#221B17] hover:bg-[#2D241F] text-[#EDE5DB] border-[#3D332B]'
-              : 'bg-white hover:bg-[#FAF7F2] text-[#3D2C2C] border-[#E8DFD3]'
+              ? 'bg-[#1C1714]/90 border-[#332A24]'
+              : 'bg-white/90 border-[#EFE3D5]'
           }`}
         >
-          <ArrowLeft className={`w-4 h-4 ${isDarkMode ? 'text-[#A89A8D]' : 'text-[#756262]'}`} />
-          <span>Home</span>
-        </button>
-
-        <span className={`inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-full text-[11px] font-semibold border backdrop-blur-xs ${
-          isDarkMode ? 'bg-[#221B17]/80 text-[#E8CDAC] border-[#3D332B]' : 'bg-white/80 text-amber-700 border-[#ECDCC6]'
-        }`}>
-          <Sparkles className="w-3 h-3" />
-          <span className="hidden sm:inline">
-            {getClusterById(academicClusterId)?.shortLabel || 'student'} · load {stressLevel}/10
-          </span>
-          <span className="sm:hidden">load {stressLevel}/10</span>
-        </span>
-      </div>
-
-      {/* Full-width Segmented Tab Controller (Chat Tabs) */}
-      <div className={`rounded-3xl p-1.5 border shadow-2xs flex items-stretch gap-1 flex-shrink-0 ${
-        isDarkMode ? 'bg-[#1C1815]/95 border-[#3A322B]' : 'bg-[#F5EEE6]/90 border-[#EADDC9]'
-      }`} role="tablist" aria-label="AI assistant tabs">
-        {CHAT_TABS.map((tab) => {
-          const isActive = tab.id === activeTab;
-          return (
-            <button
-              key={tab.id}
-              type="button"
-              role="tab"
-              aria-selected={isActive}
-              onClick={() => handleSelectTab(tab)}
-              className={`relative flex-1 flex flex-col items-center justify-center gap-0.5 px-2 py-2.5 sm:py-3 rounded-2xl transition-all cursor-pointer ${
-                isActive
-                  ? isDarkMode
-                    ? 'bg-[#382B22] text-[#EDE5DB] shadow-sm'
-                    : 'bg-white text-[#3D2C2C] shadow-sm'
-                  : isDarkMode
-                    ? 'text-[#9E8F82] hover:text-[#EDE5DB]'
-                    : 'text-[#8C7A7A] hover:text-[#3D2C2C]'
-              }`}
-            >
-              <span className={`flex items-center space-x-1.5 ${
-                isActive
-                  ? isDarkMode ? 'text-[#E8CDAC]' : 'text-amber-700'
-                  : ''
-              }`}>
-                <span className={isActive ? '' : 'opacity-70'}>{tab.icon}</span>
-                <span className="text-xs sm:text-sm font-bold">{tab.label}</span>
-              </span>
-              <span className={`hidden sm:block text-[9px] font-medium leading-tight ${
-                isActive
-                  ? isDarkMode ? 'text-[#B8A796]' : 'text-[#967F7F]'
-                  : isDarkMode ? 'text-[#7A6D62]' : 'text-[#A89A8A]'
-              }`}>
-                {tab.description}
-              </span>
-            </button>
-          );
-        })}
-      </div>
-
-      {/* Active tab banner (mobile-friendly description + persona identity) */}
-      <div className={`flex items-center gap-3 px-4 py-2.5 rounded-2xl border flex-shrink-0 ${
-        isDarkMode ? 'bg-[#221B17]/80 border-[#3D332B]' : 'bg-white/80 border-[#EFE6DB]'
-      }`}>
-        <div className={`w-10 h-10 rounded-2xl flex items-center justify-center text-xl flex-shrink-0 ${themeStyles.avatarBg}`}>
-          {activeCompanion.avatar}
-        </div>
-        <div className="min-w-0">
-          <p className={`text-xs font-bold ${themeStyles.accentText}`}>
-            {activeCompanion.name} — {activeTabDef.label}
-          </p>
-          <p className={`text-[11px] leading-snug ${isDarkMode ? 'text-[#A89A8D]' : 'text-[#857070]'}`}>
-            {activeTabDef.description}
-          </p>
+          {CHAT_TABS.map((tab) => {
+            const isActive = tab.id === activeTab;
+            const comp = COMPANIONS.find(c => c.id === tab.companionId) || COMPANIONS[0];
+            return (
+              <button
+                key={tab.id}
+                type="button"
+                role="tab"
+                aria-selected={isActive}
+                onClick={() => handleSelectTab(tab)}
+                className={`relative flex items-center space-x-2 sm:space-x-3 p-2 sm:p-2.5 rounded-xl sm:rounded-2xl transition-all duration-200 text-left cursor-pointer ${
+                  isActive
+                    ? themeStyles.activeTabBg
+                    : isDarkMode
+                      ? 'hover:bg-[#251E19] text-[#A8988A]'
+                      : 'hover:bg-[#FDF9F4] text-[#786455]'
+                }`}
+              >
+                <div
+                  className={`w-8 h-8 sm:w-9 sm:h-9 rounded-xl flex items-center justify-center text-base sm:text-lg flex-shrink-0 shadow-2xs ${
+                    tab.id === 'wellness'
+                      ? 'bg-purple-500/20 text-purple-600 dark:text-purple-300'
+                      : tab.id === 'skill'
+                        ? 'bg-amber-500/20 text-amber-600 dark:text-amber-300'
+                        : 'bg-emerald-500/20 text-emerald-600 dark:text-emerald-300'
+                  }`}
+                >
+                  {comp.avatar}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center space-x-1.5">
+                    <span className="font-extrabold text-xs sm:text-sm tracking-tight truncate">
+                      {tab.label}
+                    </span>
+                    {isActive && (
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse hidden sm:inline-block" />
+                    )}
+                  </div>
+                  <p className="text-[10px] sm:text-[11px] font-medium leading-tight truncate opacity-85">
+                    {tab.role}
+                  </p>
+                </div>
+              </button>
+            );
+          })}
         </div>
       </div>
 
-      {/* Specialty Breathing guide for Wellness (casti) */}
-      <AnimatePresence>
-        {activeCompanionId === 'casti' && (
-          <motion.div
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: 'auto' }}
-            exit={{ opacity: 0, height: 0 }}
-            className="overflow-hidden"
-          >
-            <div className={`flex items-center justify-between px-2 pb-1 ${
-              isDarkMode ? 'text-[#A89A8D]' : 'text-[#756262]'
-            }`}>
-              <span className="text-xs flex items-center space-x-1.5">
-                <span className={isDarkMode ? 'text-[#BCA3E6]' : 'text-[#7D5EAA]'}>🧘</span>
-                <span>Need a quiet pause?</span>
+      {/* 2. CHAT FEED & TOOLS (Viewport-optimized, zero page scrolling) */}
+      <div
+        className={`flex-1 flex flex-col rounded-3xl border overflow-hidden shadow-lg backdrop-blur-md min-h-0 ${
+          isDarkMode
+            ? 'bg-[#1F1916]/95 border-[#382E27] shadow-black/30'
+            : 'bg-white/95 border-[#EFE3D5] shadow-[#E8DACB]/40'
+        }`}
+      >
+        {/* Chat Companion Sub-Header */}
+        <div
+          className={`px-4 sm:px-5 py-2.5 border-b flex items-center justify-between flex-shrink-0 ${
+            isDarkMode ? 'bg-[#181310]/80 border-[#2E241E]' : 'bg-[#FAF6F0]/80 border-[#EFE5D8]'
+          }`}
+        >
+          <div className="flex items-center space-x-2.5">
+            <span className="text-base sm:text-lg">{activeCompanion.avatar}</span>
+            <div className="leading-tight">
+              <span className={`text-xs sm:text-sm font-extrabold ${themeStyles.accentColor}`}>
+                {activeCompanion.name}
               </span>
+              <span className={`block text-[10px] sm:text-[11px] ${isDarkMode ? 'text-[#A09080]' : 'text-[#7D6B5E]'}`}>
+                {activeTabDef.description}
+              </span>
+            </div>
+          </div>
+
+          <div className="flex items-center space-x-1.5">
+            {/* Wellness Quick Breathing Toggle */}
+            {activeCompanionId === 'casti' && (
               <button
                 type="button"
                 onClick={() => setShowBreathingTool(!showBreathingTool)}
-                className={`text-xs hover:underline font-semibold cursor-pointer ${
-                  isDarkMode ? 'text-[#BCA3E6]' : 'text-[#7D5EAA]'
+                className={`px-2.5 py-1 rounded-full text-xs font-semibold flex items-center space-x-1 transition-all cursor-pointer ${
+                  showBreathingTool
+                    ? 'bg-purple-600 text-white shadow-xs'
+                    : isDarkMode
+                      ? 'bg-[#291F36] text-[#D8C7F0] hover:bg-[#382B4A]'
+                      : 'bg-[#F4EDFA] text-[#6E5496] hover:bg-[#EADBFA]'
                 }`}
               >
-                {showBreathingTool ? 'Close breathing guide' : 'Try 1-minute breathing'}
+                <Wind className="w-3.5 h-3.5" />
+                <span className="hidden xs:inline">1-Min Breath</span>
               </button>
-            </div>
-
-            {showBreathingTool && (
-              <div className={`rounded-[28px] p-5 text-center border shadow-sm space-y-3 ${
-                isDarkMode
-                  ? 'bg-gradient-to-b from-[#221B2E] to-[#1B1525] border-[#3D2E54]'
-                  : 'bg-gradient-to-b from-[#F7F2FC] to-[#EFE7F8] border-[#E4D5F5]'
-              }`}>
-                <p className={`text-xs font-semibold ${isDarkMode ? 'text-[#D8C7F0]' : 'text-[#6E5496]'}`}>
-                  Gentle Breathing Rhythm
-                </p>
-                <div className="flex justify-center my-3">
-                  <motion.div
-                    animate={{
-                      scale: breathingPhase === 'inhale' ? 1.3 : breathingPhase === 'hold' ? 1.3 : 1,
-                      opacity: breathingPhase === 'hold' ? 0.9 : 1
-                    }}
-                    transition={{ duration: 4, ease: "easeInOut" }}
-                    className={`w-22 h-22 rounded-full border-2 flex items-center justify-center font-bold text-xs shadow-md ${
-                      isDarkMode
-                        ? 'bg-[#2E2240] border-[#533D73] text-[#D8C7F0]'
-                        : 'bg-white border-[#CDB3E8] text-[#6E5496]'
-                    }`}
-                  >
-                    <span className="capitalize tracking-wide">{breathingPhase}</span>
-                  </motion.div>
-                </div>
-                <p className={`text-xs italic font-medium ${isDarkMode ? 'text-[#BCA3E6]' : 'text-[#7D5EAA]'}`}>
-                  {breathingPhase === 'inhale' && "Breathe in softly through your nose..."}
-                  {breathingPhase === 'hold' && "Hold gently and relax your shoulders..."}
-                  {breathingPhase === 'exhale' && "Exhale slowly and let go of tension..."}
-                </p>
-              </div>
             )}
-          </motion.div>
-        )}
-      </AnimatePresence>
 
-      {/* Skill & Practice quick-launch panel (interactive quiz/practice) */}
-      <AnimatePresence>
-        {activeTab === 'skill' && (
-          <motion.div
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -8 }}
-            className={`rounded-[24px] p-4 border shadow-xs ${
-              isDarkMode
-                ? 'bg-[#201A17]/90 border-[#3D332B]'
-                : 'bg-white/90 border-[#EFEAE0]'
-            }`}
-          >
-            <div className="flex items-center space-x-2 mb-2.5">
-              <div className={`p-1.5 rounded-xl ${isDarkMode ? 'bg-[#3B271A] text-[#F5C79E]' : 'bg-amber-100 text-amber-700'}`}>
-                <Zap className="w-4 h-4" />
-              </div>
-              <p className="text-xs font-bold">Quick Practice — tap to start</p>
-            </div>
-            <div className="flex items-center gap-2 overflow-x-auto scrollbar-none pb-0.5">
-              {SKILL_QUICK_PROMPTS.map((p, idx) => (
-                <button
-                  key={idx}
-                  type="button"
-                  onClick={() => handleSendMessage(p)}
-                  className={`px-3 py-2 rounded-full border text-[11px] font-medium flex-shrink-0 hover:scale-102 transition-all cursor-pointer ${themeStyles.promptPill}`}
-                >
-                  <BookOpen className="w-3 h-3 inline mr-1 -mt-0.5" />
-                  {p}
-                </button>
-              ))}
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* Main Chat Container */}
-      <div className={`rounded-[28px] sm:rounded-[36px] border overflow-hidden flex flex-col flex-1 min-h-0 md:h-[560px] md:min-h-0 transition-all duration-300 ${
-        isDarkMode
-          ? 'bg-[#201A17]/95 backdrop-blur-md border-[#382F28] shadow-[0_8px_32px_rgba(0,0,0,0.35)]'
-          : 'bg-[#FFFDF9]/95 backdrop-blur-md border-[#F2E8DC] shadow-[0_8px_32px_rgba(180,140,110,0.07)]'
-      }`}>
-
-        {/* Chat Header Controls */}
-        <div className={`px-5 py-3 border-b flex items-center justify-between ${
-          isDarkMode ? 'border-[#332A24]' : 'border-[#F2E9DE]'
-        }`}>
-          <div className="flex items-center space-x-2">
-            <span className="w-2 h-2 rounded-full bg-[#74A280] animate-pulse" />
-            <p className={`text-xs font-medium ${isDarkMode ? 'text-[#A89A8D]' : 'text-[#857070]'}`}>
-              {activeCompanion.name} · {activeTabDef.label}
-            </p>
+            {/* Clear conversation */}
+            <button
+              type="button"
+              onClick={handleClearHistory}
+              title="Reset conversation"
+              className={`p-1.5 px-2.5 rounded-full text-xs flex items-center space-x-1 transition-colors cursor-pointer ${
+                isDarkMode
+                  ? 'text-[#9E8F82] hover:text-white hover:bg-[#2A211B]'
+                  : 'text-[#8A7569] hover:text-[#3D2C2C] hover:bg-[#EFE5D8]'
+              }`}
+            >
+              <RefreshCw className="w-3.5 h-3.5" />
+              <span className="text-[11px] font-medium hidden sm:inline">Clear</span>
+            </button>
           </div>
-
-          <button
-            type="button"
-            onClick={handleClearHistory}
-            className={`p-1.5 px-2.5 rounded-xl transition-colors text-xs flex items-center space-x-1.5 cursor-pointer ${
-              isDarkMode
-                ? 'text-[#8C7E72] hover:text-[#EDE5DB] hover:bg-[#2D231E]'
-                : 'text-[#A69797] hover:text-[#5E4747] hover:bg-[#FAF4EC]'
-            }`}
-            title="Start a fresh conversation"
-          >
-            <RefreshCw className="w-3.5 h-3.5" />
-            <span className="text-[11px] font-medium">Clear</span>
-          </button>
         </div>
 
-        {/* Messages Feed */}
-        <div className={`flex-1 p-4 sm:p-6 overflow-y-auto space-y-4.5 ${
-          isDarkMode ? 'bg-[#181310]/50' : 'bg-[#FAF6F0]/50'
-        }`}>
+        {/* Optional Interactive Calm Drawer (Breathing) */}
+        <AnimatePresence>
+          {showBreathingTool && activeCompanionId === 'casti' && (
+            <motion.div
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: 'auto', opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              className="overflow-hidden border-b border-purple-500/20 bg-gradient-to-r from-purple-500/10 via-purple-500/5 to-purple-500/10 p-3 text-center flex-shrink-0"
+            >
+              <div className="flex items-center justify-center space-x-4">
+                <motion.div
+                  animate={{
+                    scale: breathingPhase === 'inhale' ? 1.25 : breathingPhase === 'hold' ? 1.25 : 0.9,
+                  }}
+                  transition={{ duration: 4, ease: 'easeInOut' }}
+                  className="w-12 h-12 rounded-full bg-purple-600 text-white font-bold text-[11px] flex items-center justify-center shadow-md uppercase"
+                >
+                  {breathingPhase}
+                </motion.div>
+                <div className="text-left text-xs">
+                  <div className="font-bold text-purple-700 dark:text-purple-300">
+                    {breathingPhase === 'inhale' && 'Breathe In softly through your nose...'}
+                    {breathingPhase === 'hold' && 'Hold gently and relax your shoulders...'}
+                    {breathingPhase === 'exhale' && 'Exhale slowly and release all tension...'}
+                  </div>
+                  <div className="text-[11px] opacity-75">4-4-4 diaphragmatic rhythm</div>
+                </div>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Optional Skill Quick Quiz Prompts Drawer */}
+        {activeTab === 'skill' && (
+          <div
+            className={`px-3 py-1.5 border-b flex items-center space-x-2 overflow-x-auto scrollbar-none flex-shrink-0 text-xs ${
+              isDarkMode ? 'bg-[#1A1412] border-[#2E241E]' : 'bg-[#FDF7F0] border-[#EFE2D2]'
+            }`}
+          >
+            <span className="text-[11px] font-bold text-amber-700 dark:text-amber-400 flex items-center space-x-1 shrink-0">
+              <Zap className="w-3 h-3" />
+              <span>Drill Starters:</span>
+            </span>
+            {SKILL_QUICK_PROMPTS.map((p, idx) => (
+              <button
+                key={idx}
+                type="button"
+                onClick={() => handleSendMessage(p)}
+                className={`px-2.5 py-1 rounded-full text-[11px] font-medium border shrink-0 hover:scale-102 transition-all cursor-pointer ${themeStyles.promptPill}`}
+              >
+                <BookOpen className="w-2.5 h-2.5 inline mr-1" />
+                {p}
+              </button>
+            ))}
+          </div>
+        )}
+
+        {/* Messages Feed (Scrollable internally) */}
+        <div
+          className={`flex-1 p-3.5 sm:p-5 overflow-y-auto space-y-3.5 scrollbar-thin ${
+            isDarkMode ? 'bg-[#15110E]/60' : 'bg-[#FAF7F2]/60'
+          }`}
+        >
           {activeMessages.map((msg) => {
             const isUser = msg.sender === 'user';
             return (
               <motion.div
                 key={msg.id}
-                initial={{ opacity: 0, y: 8 }}
+                initial={{ opacity: 0, y: 6 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.25 }}
-                className={`flex items-start space-x-3 ${isUser ? 'flex-row-reverse space-x-reverse' : 'flex-row'}`}
+                transition={{ duration: 0.2 }}
+                className={`flex items-start space-x-2.5 ${isUser ? 'flex-row-reverse space-x-reverse' : 'flex-row'}`}
               >
-                {/* Avatar Icon */}
-                <div className={`w-9 h-9 rounded-2xl flex items-center justify-center text-base flex-shrink-0 shadow-2xs ${
-                  isUser
-                    ? themeStyles.buttonBg
-                    : themeStyles.avatarBg
-                }`}>
+                {/* Avatar */}
+                <div
+                  className={`w-8 h-8 rounded-xl flex items-center justify-center text-sm flex-shrink-0 shadow-2xs ${
+                    isUser ? themeStyles.buttonBg : themeStyles.avatarBg
+                  }`}
+                >
                   {isUser ? '👤' : activeCompanion.avatar}
                 </div>
 
-                {/* Bubble */}
-                <div className={`max-w-[80%] sm:max-w-[74%] p-4 rounded-[24px] text-xs sm:text-sm leading-relaxed whitespace-pre-wrap ${
-                  isUser
-                    ? `${themeStyles.userBubble} rounded-tr-xs`
-                    : `${themeStyles.botBubble} rounded-tl-xs`
-                }`}>
+                {/* Message Bubble */}
+                <div
+                  className={`max-w-[85%] sm:max-w-[78%] p-3 sm:p-3.5 rounded-2xl text-xs sm:text-sm leading-relaxed whitespace-pre-wrap ${
+                    isUser
+                      ? `${themeStyles.userBubble} rounded-tr-xs`
+                      : `${themeStyles.botBubble} rounded-tl-xs`
+                  }`}
+                >
                   {msg.text}
                 </div>
               </motion.div>
             );
           })}
 
-          {/* Inline Tier 1 or Tier 2 Resource Card when triggered */}
+          {/* Inline Risk Response */}
           {activeInlineRiskTier && (
             <div className="pt-2">
               <TieredResourceCard
@@ -586,28 +575,26 @@ export const CompanionRoomView: React.FC<CompanionRoomViewProps> = ({
                 currentUser={currentUser}
                 isDarkMode={isDarkMode}
                 triggerContext={activeInlineRiskTier.context}
-                onDismissTier2Prompt={() => {
-                  // Keep the calming resources, dismiss prompt
-                }}
-                onConnectGuidance={() => {
-                  // Connection sent
-                }}
+                onDismissTier2Prompt={() => {}}
+                onConnectGuidance={() => {}}
               />
             </div>
           )}
 
-          {/* Typing Indicator */}
+          {/* Thinking indicator */}
           {isLoading && (
-            <div className="flex items-center space-x-2.5">
-              <div className={`w-9 h-9 rounded-2xl flex items-center justify-center text-base shadow-2xs ${themeStyles.avatarBg}`}>
+            <div className="flex items-center space-x-2">
+              <div className={`w-8 h-8 rounded-xl flex items-center justify-center text-sm shadow-2xs ${themeStyles.avatarBg}`}>
                 {activeCompanion.avatar}
               </div>
-              <div className={`p-4 rounded-[22px] rounded-tl-xs text-xs flex items-center space-x-2 shadow-2xs ${
-                isDarkMode
-                  ? 'bg-[#29221C] border border-[#3D332B] text-[#A89A8D]'
-                  : 'bg-white border border-[#EFE6DC] text-[#8C7A7A]'
-              }`}>
-                <span>{activeCompanion.name} is thinking with care</span>
+              <div
+                className={`p-3 rounded-2xl rounded-tl-xs text-xs flex items-center space-x-1.5 shadow-2xs ${
+                  isDarkMode
+                    ? 'bg-[#29221C] border border-[#3D332B] text-[#A89A8D]'
+                    : 'bg-white border border-[#EFE6DC] text-[#8C7A7A]'
+                }`}
+              >
+                <span>{activeCompanion.name} is reflecting</span>
                 <span className="animate-pulse">...</span>
               </div>
             </div>
@@ -616,42 +603,42 @@ export const CompanionRoomView: React.FC<CompanionRoomViewProps> = ({
           <div ref={messagesEndRef} />
         </div>
 
-        {/* Suggested Prompts Bar */}
-        <div className={`px-4 py-2.5 border-t flex items-center space-x-2 overflow-x-auto scrollbar-none ${
-          isDarkMode
-            ? 'bg-[#1C1613] border-[#332A24]'
-            : 'bg-[#FAF5EE] border-[#F2EAE0]'
-        }`}>
-          <span className={`text-[11px] font-semibold flex-shrink-0 flex items-center space-x-1 ${
-            isDarkMode ? 'text-[#9E8F82]' : 'text-[#8C7575]'
+        {/* Suggested Prompts Pills */}
+        <div
+          className={`px-3 sm:px-4 py-2 border-t flex items-center space-x-1.5 overflow-x-auto scrollbar-none flex-shrink-0 ${
+            isDarkMode ? 'bg-[#181310] border-[#2E241E]' : 'bg-[#FAF5EE] border-[#EFE2D2]'
+          }`}
+        >
+          <span className={`text-[10px] sm:text-[11px] font-semibold shrink-0 flex items-center space-x-1 ${
+            isDarkMode ? 'text-[#A09080]' : 'text-[#7D6B5E]'
           }`}>
-            <Sparkles className="w-3 h-3" />
-            <span>Ideas:</span>
+            <Sparkles className="w-3 h-3 text-amber-500" />
+            <span>Suggestions:</span>
           </span>
           {activeCompanion.samplePrompts.map((prompt, idx) => (
             <button
               key={idx}
               type="button"
               onClick={() => handleSendMessage(prompt)}
-              className={`px-3.5 py-1.5 text-xs rounded-full border transition-all flex-shrink-0 font-normal hover:scale-102 cursor-pointer ${themeStyles.promptPill}`}
+              className={`px-2.5 sm:px-3 py-1 text-[11px] rounded-full border transition-all shrink-0 font-normal hover:scale-102 cursor-pointer ${themeStyles.promptPill}`}
             >
-              "{prompt}"
+              &ldquo;{prompt}&rdquo;
             </button>
           ))}
         </div>
 
         {/* Input Bar */}
-        <div className={`p-3 border-t ${
-          isDarkMode
-            ? 'bg-[#201A17] border-[#382F28]'
-            : 'bg-white border-[#F2EAE0]'
-        }`}>
+        <div
+          className={`p-2.5 sm:p-3 border-t flex-shrink-0 ${
+            isDarkMode ? 'bg-[#1C1613] border-[#2E241E]' : 'bg-white border-[#EFE2D2]'
+          }`}
+        >
           <form
             onSubmit={(e) => {
               e.preventDefault();
               handleSendMessage();
             }}
-            className="flex items-center space-x-2.5"
+            className="flex items-center space-x-2"
           >
             <input
               type="text"
@@ -659,28 +646,26 @@ export const CompanionRoomView: React.FC<CompanionRoomViewProps> = ({
               onChange={(e) => setInputText(e.target.value)}
               placeholder={
                 activeTab === 'skill'
-                  ? `Type a topic for a quiz, e.g. "quiz me on networking"...`
-                  : `Write a message to ${activeCompanion.name}...`
+                  ? `Ask ${activeCompanion.name} to quiz you on any subject or concept...`
+                  : `Message ${activeCompanion.name}...`
               }
-              className={`flex-1 px-4 py-3 rounded-2xl border text-xs sm:text-sm focus:outline-none transition-colors ${
+              className={`flex-1 px-3.5 sm:px-4 py-2.5 rounded-xl sm:rounded-2xl border text-xs sm:text-sm focus:outline-none transition-colors ${
                 isDarkMode
-                  ? 'bg-[#181310] border-[#3D332B] text-[#EDE5DB] placeholder-[#786D63] focus:ring-1 focus:ring-[#8C7662]'
-                  : 'bg-[#FAF7F2] border-[#E8DFD3] text-[#3D2C2C] placeholder-[#A69797] focus:ring-1 focus:ring-[#C9B39F]'
+                  ? 'bg-[#14100E] border-[#382D24] text-[#EDE5DB] placeholder-[#786D63] focus:ring-1 focus:ring-amber-600'
+                  : 'bg-[#FAF7F2] border-[#E8DFD3] text-[#3D2C2C] placeholder-[#A69797] focus:ring-1 focus:ring-amber-500'
               }`}
             />
 
             <button
               type="submit"
               disabled={!inputText.trim() || isLoading}
-              className={`p-3.5 ${themeStyles.buttonBg} rounded-2xl disabled:opacity-40 transition-all flex-shrink-0 hover:scale-105 cursor-pointer shadow-xs`}
+              className={`p-2.5 sm:p-3 ${themeStyles.buttonBg} rounded-xl sm:rounded-2xl disabled:opacity-40 transition-all shrink-0 hover:scale-105 cursor-pointer shadow-xs`}
             >
               <Send className="w-4 h-4 text-white" />
             </button>
           </form>
         </div>
-
       </div>
-
     </div>
   );
 };

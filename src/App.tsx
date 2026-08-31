@@ -5,7 +5,7 @@ import { StudentDashboard } from './components/student/StudentDashboard';
 import { CompanionRoomView } from './components/student/CompanionRoomView';
 import { AboutUsView } from './components/student/AboutUsView';
 import { CounselorDashboard } from './components/counselor/CounselorDashboard';
-import { ViewSwitcher } from './components/ViewSwitcher';
+import { ViewSwitcher, AppViewMode } from './components/ViewSwitcher';
 import { CrisisModal } from './components/CrisisModal';
 import { NightModeToggle } from './components/NightModeToggle';
 import { SchoolHeaderStamp } from './components/SchoolHeaderStamp';
@@ -13,9 +13,8 @@ import { PersistentCrisisButton } from './components/PersistentCrisisButton';
 
 export default function App() {
   const [currentUser] = useState<User>(MOCK_USERS[0]); // Maria Santos (Student)
-  const [viewMode, setViewMode] = useState<'student' | 'counselor'>('student');
-  const [activeCompanionRoom, setActiveCompanionRoom] = useState<CompanionId | null>(null);
-  const [showAboutPage, setShowAboutPage] = useState(false);
+  const [viewMode, setViewMode] = useState<AppViewMode>('student');
+  const [activeCompanionRoom, setActiveCompanionRoom] = useState<CompanionId | null>('casti');
   
   // Personalization state (shared between dashboard and companion room)
   const [preferredName, setPreferredName] = useState<string>(() => {
@@ -127,6 +126,13 @@ export default function App() {
     setIsCrisisModalOpen(true);
   };
 
+  const handleViewChange = (mode: AppViewMode) => {
+    setViewMode(mode);
+    if (mode === 'companions' && !activeCompanionRoom) {
+      setActiveCompanionRoom('casti');
+    }
+  };
+
   const todayStr = new Date().toISOString().split('T')[0];
   const latestMoodLog = moodLogs.find(l => l.studentId === currentUser.id && l.date === todayStr) || moodLogs[0];
 
@@ -168,21 +174,16 @@ export default function App() {
         }`} />
       </div>
 
-      {/* Top Left School Logo Stamp (Subtle branding) */}
-      <SchoolHeaderStamp isDarkMode={isDarkMode} />
+      {/* Top Left School Logo Stamp (Subtle branding) - Shown on student and counselor dashboard views */}
+      {(viewMode === 'student' || viewMode === 'counselor') && (
+        <SchoolHeaderStamp isDarkMode={isDarkMode} />
+      )}
 
-      {/* Top Right Header Controls: View Mode Switcher + Night/Day Toggle */}
-      <div className="fixed right-3 sm:right-6 top-3.5 sm:top-4 z-40 flex items-center space-x-2 sm:space-x-2.5">
+      {/* Top Right Header Controls: 4-Way View Switcher (Student / AI Companions / Counselor / About) + Night Toggle */}
+      <div className="fixed right-2 sm:right-6 top-3 sm:top-4 z-40 flex items-center space-x-1.5 sm:space-x-2.5">
         <ViewSwitcher
           viewMode={viewMode}
-onViewChange={(mode) => {
-              setViewMode(mode);
-              // Return to main dashboard view if switching from companion room
-              if (mode === 'counselor') {
-                setActiveCompanionRoom(null);
-                setShowAboutPage(false);
-              }
-            }}
+          onViewChange={handleViewChange}
           isDarkMode={isDarkMode}
         />
         <NightModeToggle
@@ -194,25 +195,25 @@ onViewChange={(mode) => {
 
       {/* Main Container */}
       <main className="relative z-10 w-full pb-16 md:pb-0">
-        {viewMode === 'counselor' ? (
+        {viewMode === 'about' ? (
+          <AboutUsView
+            isDarkMode={isDarkMode}
+            onBackToDashboard={() => handleViewChange('student')}
+          />
+        ) : viewMode === 'counselor' ? (
           <CounselorDashboard isDarkMode={isDarkMode} />
-        ) : activeCompanionRoom ? (
+        ) : viewMode === 'companions' ? (
           <CompanionRoomView
             currentUser={currentUser}
-            companionId={activeCompanionRoom}
+            companionId={activeCompanionRoom || 'casti'}
             isDarkMode={isDarkMode}
             latestMoodLog={latestMoodLog}
             preferredName={preferredName}
             academicClusterId={academicClusterId}
             stressLevel={stressLevel}
-            onBackToDashboard={() => { setActiveCompanionRoom(null); setShowAboutPage(false); }}
+            onBackToDashboard={() => { handleViewChange('student'); }}
             onSwitchCompanionRoom={(id) => setActiveCompanionRoom(id)}
             onCrisisTriggered={handleOpenEmergencyCrisis}
-          />
-        ) : showAboutPage ? (
-          <AboutUsView
-            isDarkMode={isDarkMode}
-            onBackToDashboard={() => setShowAboutPage(false)}
           />
         ) : (
           <StudentDashboard
@@ -220,8 +221,11 @@ onViewChange={(mode) => {
             moodLogs={moodLogs}
             isDarkMode={isDarkMode}
             onAddMoodLog={handleAddMoodLog}
-            onOpenCompanionRoom={(id) => setActiveCompanionRoom(id)}
-            onOpenAbout={() => setShowAboutPage(true)}
+            onOpenCompanionRoom={(id) => {
+              setActiveCompanionRoom(id);
+              setViewMode('companions');
+            }}
+            onOpenAbout={() => handleViewChange('about')}
             onCrisisTriggered={handleOpenEmergencyCrisis}
             preferredName={preferredName}
             onChangePreferredName={handleChangePreferredName}
@@ -248,7 +252,7 @@ onViewChange={(mode) => {
             isDarkMode={isDarkMode}
             isTier3Emergency={isTier3Emergency}
             onContactGuidance={() => {
-              // Additional notification handling if needed
+              // Guidance notification handling
             }}
           />
         </>
