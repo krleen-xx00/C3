@@ -21,7 +21,7 @@ export const CabiaoLogo: React.FC<CabiaoLogoProps> = ({
       } ${className}`}
     >
       <img
-        src="/logo.jpg"
+        src="/logo.png"
         alt={alt}
         className="w-full h-full object-contain select-none pointer-events-none"
         loading="eager"

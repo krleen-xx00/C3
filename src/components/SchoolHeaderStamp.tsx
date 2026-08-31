@@ -20,7 +20,7 @@ export const SchoolHeaderStamp: React.FC<SchoolHeaderStampProps> = ({ isDarkMode
       >
         <div className="w-full h-full opacity-95 transition-opacity hover:opacity-100 flex items-center justify-center overflow-hidden rounded-full">
           <img
-            src="/logo.jpg"
+            src="/logo.png"
             alt="Cabiao National Senior High School logo"
             className="w-full h-full object-cover"
             draggable={false}

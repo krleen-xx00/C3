@@ -197,7 +197,7 @@ export const CounselorAuthView: React.FC<CounselorAuthViewProps> = ({
             {/* School Seal */}
             <div className="relative w-16 h-16 sm:w-20 sm:h-20 rounded-full p-1 bg-white shadow-md ring-2 ring-amber-500/30 flex items-center justify-center">
               <img
-                src="/logo.jpg"
+                src="/logo.png"
                 alt="Cabiao National Senior High School Seal"
                 className="w-full h-full object-contain rounded-full"
               />

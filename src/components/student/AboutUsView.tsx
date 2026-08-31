@@ -205,7 +205,7 @@ export const AboutUsView: React.FC<AboutUsViewProps> = ({
             <div className="flex items-center space-x-2.5 pl-2 border-l border-neutral-300 dark:border-neutral-700">
               <div className="w-8 h-8 rounded-full overflow-hidden p-0.5 bg-white dark:bg-[#251E1A] shadow-xs border border-emerald-800/30 dark:border-emerald-500/30 flex items-center justify-center shrink-0">
                 <img
-                  src="/logo.jpg"
+                  src="/logo.png"
                   alt="Cabiao National Senior High School Seal"
                   className="w-full h-full object-contain rounded-full"
                   draggable={false}
@@ -332,7 +332,7 @@ export const AboutUsView: React.FC<AboutUsViewProps> = ({
                   <div className="flex items-center justify-center space-x-3 mb-3">
                     <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-full p-1 bg-white dark:bg-[#2B231D] shadow-md border-2 border-emerald-700/40 dark:border-emerald-500/40 flex items-center justify-center shrink-0">
                       <img
-                        src="/logo.jpg"
+src="/logo.png"
                         alt="Cabiao National Senior High School Seal"
                         className="w-full h-full object-contain rounded-full select-none"
                         draggable={false}
