@@ -178,20 +178,20 @@ export const AboutUsView: React.FC<AboutUsViewProps> = ({
       {/* 1. TOP PRESENTATION DECK HEADER */}
       <header
         id="presentation-header"
-        className={`w-full z-30 px-3 sm:px-6 pt-14 sm:pt-16 md:pt-3 pb-2.5 sm:py-3 border-b backdrop-blur-md transition-colors duration-300 ${
+        className={`w-full z-30 px-3 sm:px-6 pt-16 sm:pt-20 pb-2.5 sm:py-3 border-b backdrop-blur-md transition-colors duration-300 ${
           isDarkMode
             ? 'bg-[#1A1613]/85 border-[#2E2621]'
             : 'bg-white/80 border-[#EFE5D8]'
         }`}
       >
-        <div className="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-2.5 md:pr-72 lg:pr-80">
+        <div className="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-2.5">
           {/* Left: Project Branding & Return Button with Official School Logo */}
           <div className="flex items-center space-x-2.5 sm:space-x-3">
             <button
               id="back-to-dashboard-btn"
               type="button"
               onClick={onBackToDashboard}
-              title="Return to Student Dashboard (Esc)"
+              title="Return to Wellness (Esc)"
               className={`group inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-full text-xs font-semibold tracking-tight transition-all duration-200 cursor-pointer border shadow-2xs ${
                 isDarkMode
                   ? 'text-[#D0C0B0] bg-[#221C18] border-[#3D332B] hover:bg-[#2C241F] hover:text-white'
@@ -199,7 +199,7 @@ export const AboutUsView: React.FC<AboutUsViewProps> = ({
               }`}
             >
               <ArrowLeft className="w-3.5 h-3.5 transition-transform duration-200 group-hover:-translate-x-0.5" />
-              <span>Back to Student</span>
+              <span>Back to Wellness</span>
             </button>
 
             <div className="flex items-center space-x-2.5 pl-2 border-l border-neutral-300 dark:border-neutral-700">

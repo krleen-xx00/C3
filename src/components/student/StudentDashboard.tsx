@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { User, CompanionId, MoodLog, InspirationSource, RiskTier, AcademicClusterId, UserStressLevel } from '../../types';
 import { motion, AnimatePresence } from 'motion/react';
-import { Sparkles, ArrowRight, Settings, UserPlus } from 'lucide-react';
+import { Sparkles, ArrowRight, Settings, UserPlus, BookOpen } from 'lucide-react';
 import { DailyInspirationCard } from './DailyInspirationCard';
 import { InspirationSettingsModal } from './InspirationSettingsModal';
 import { PersonalizationPanel } from './PersonalizationPanel';
-import { MobileTabBar, MobileTabId } from './MobileTabBar';
 import { TieredResourceCard } from './TieredResourceCard';
+import { OfflineToolsModal } from './OfflineToolsModal';
 import { classifyRisk } from '../../utils/riskClassifier';
 import { SECULAR_AFFIRMATIONS, SECULAR_DAILY_WISDOM } from '../../data/affirmationsData';
 import { getClusterById } from '../../data/academicTracks';
@@ -174,9 +174,6 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
   const todayStr = new Date().toISOString().split('T')[0];
   const latestTodayLog = moodLogs.find(l => l.studentId === currentUser.id && l.date === todayStr);
 
-  // Mobile tab navigation state (only used on small screens)
-  const [activeTab, setActiveTab] = useState<MobileTabId>('overview');
-
   // Personalization panel state
   const [isPersonalizationOpen, setIsPersonalizationOpen] = useState<boolean>(false);
 
@@ -191,6 +188,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
   });
 
   const [isSettingsOpen, setIsSettingsOpen] = useState<boolean>(false);
+  const [isOfflineToolsOpen, setIsOfflineToolsOpen] = useState<boolean>(false);
   const [checkInRiskTier, setCheckInRiskTier] = useState<RiskTier | null>(null);
 
   const [selectedMood, setSelectedMood] = useState<MoodOption | null>(() => {
@@ -357,12 +355,12 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
   ];
 
   return (
-    <div className={`max-w-4xl mx-auto pt-16 sm:pt-20 pb-28 md:pb-12 px-4 space-y-10 sm:space-y-14 transition-colors duration-300 ${
+    <div className={`max-w-4xl mx-auto pt-20 sm:pt-24 pb-14 sm:pb-16 px-4 space-y-10 sm:space-y-14 transition-colors duration-300 ${
       isDarkMode ? 'text-[#EDE5DB]' : 'text-[#3D2C2C]'
     }`}>
       
-      {/* 1. Warm, Expressive & Friendly Greeting — shown on Overview tab (mobile) or always (desktop) */}
-      <section className={`${activeTab === 'overview' ? '' : 'hidden'} md:block text-center space-y-3 pt-2 relative`}>
+      {/* 1. Warm, Expressive & Friendly Greeting */}
+      <section className="text-center space-y-3 pt-2 relative">
         {/* Soft decorative badge with settings shortcut */}
         <div className="inline-flex items-center justify-center flex-wrap gap-x-2 gap-y-1 px-3.5 py-1 rounded-full text-xs font-medium backdrop-blur-xs transition-colors border shadow-2xs">
           <span className="text-xs">{greeting.icon}</span>
@@ -385,7 +383,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
           <button
             type="button"
             onClick={() => setIsSettingsOpen(true)}
-            className="flex items-center space-x-1 text-amber-600 dark:text-amber-300 hover:underline font-semibold"
+            className="flex items-center space-x-1 text-amber-600 dark:text-amber-300 hover:underline font-semibold cursor-pointer"
             title="Inspiration Settings"
           >
             <Settings className="w-3 h-3" />
@@ -408,17 +406,17 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
         </p>
       </section>
 
-      {/* 2. Centered Mood Check-In Card (Supports Affirmations vs Scripture) — Overview tab */}
-      <section className={`max-w-xl mx-auto space-y-4 ${activeTab === 'overview' ? '' : 'hidden'} md:block`}>
-        <div className={`rounded-[36px] p-7 sm:p-10 border transition-all duration-300 text-center space-y-6 hover:-translate-y-1 ${
+      {/* 2. Unified Mood Check-In & Affirmation Squircle Card */}
+      <section className="max-w-xl mx-auto space-y-4">
+        <div className={`rounded-[30px] sm:rounded-[36px] p-5 sm:p-7 md:p-8 border transition-all duration-300 space-y-5 sm:space-y-6 ${
           isDarkMode
-            ? 'bg-[#221D1A]/95 backdrop-blur-md border-[#3B322B] shadow-[0_8px_32px_rgba(0,0,0,0.35)] hover:shadow-[0_16px_44px_rgba(0,0,0,0.5)]'
-            : 'bg-[#FFFDF9]/95 backdrop-blur-md border-[#F2E8DC] shadow-[0_8px_32px_rgba(180,140,110,0.07)] hover:shadow-[0_16px_44px_rgba(180,140,110,0.14)]'
+            ? 'bg-[#221D1A]/95 backdrop-blur-md border-[#3B322B] shadow-[0_8px_32px_rgba(0,0,0,0.35)]'
+            : 'bg-[#FFFDF9]/95 backdrop-blur-md border-[#F2E8DC] shadow-[0_8px_32px_rgba(180,140,110,0.07)]'
         }`}>
           
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between gap-2">
             <div className="space-y-1 text-left">
-              <h2 className="text-lg sm:text-xl font-semibold tracking-tight">
+              <h2 className="text-base sm:text-xl font-semibold tracking-tight">
                 How does your heart feel right now?
               </h2>
               <p className={`text-xs sm:text-sm ${isDarkMode ? 'text-[#A39486]' : 'text-[#857070]'}`}>
@@ -430,7 +428,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
             <button
               type="button"
               onClick={() => setIsSettingsOpen(true)}
-              className="p-2 rounded-xl border text-xs font-semibold flex items-center space-x-1 hover:scale-105 transition-all text-slate-500 hover:text-amber-600 dark:text-slate-400 dark:hover:text-amber-300 bg-white/50 dark:bg-black/20"
+              className="p-2 rounded-xl border text-xs font-semibold flex items-center space-x-1 hover:scale-105 transition-all text-slate-500 hover:text-amber-600 dark:text-slate-400 dark:hover:text-amber-300 bg-white/50 dark:bg-black/20 cursor-pointer shrink-0"
               title="Daily inspiration source settings"
             >
               <Settings className="w-3.5 h-3.5" />
@@ -438,7 +436,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
           </div>
 
           {/* Emoji Mood Selectors with Soft Colored Circle Backgrounds */}
-          <div className="grid grid-cols-5 gap-2.5 sm:gap-3.5 py-1">
+          <div className="grid grid-cols-5 gap-1.5 sm:gap-3.5 py-1">
             {MOOD_OPTIONS.map((opt, idx) => {
               const isSelected = selectedMood?.label === opt.label;
               const activeBg = isDarkMode ? opt.nightActiveBg : opt.dayActiveBg;
@@ -462,7 +460,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                     damping: 22,
                     mass: 0.8
                   }}
-                  className={`group flex flex-col items-center justify-center p-2.5 sm:p-3 rounded-2xl cursor-pointer ${
+                  className={`group flex flex-col items-center justify-center p-1.5 sm:p-3 rounded-2xl cursor-pointer ${
                     isSelected
                       ? `${activeBg}`
                       : `${glowClass} opacity-85 hover:opacity-100`
@@ -478,7 +476,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                       stiffness: 480,
                       damping: 18
                     }}
-                    className={`w-12 h-12 sm:w-13 sm:h-13 rounded-full flex items-center justify-center mb-1.5 shadow-2xs ${circleBg} ${
+                    className={`w-10 h-10 sm:w-13 sm:h-13 rounded-full flex items-center justify-center mb-1 sm:mb-1.5 shadow-2xs ${circleBg} ${
                       isSelected ? 'ring-2 ring-current' : 'group-hover:scale-105'
                     }`}
                   >
@@ -499,13 +497,13 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                           ease: 'easeInOut'
                         }
                       }}
-                      className="text-2xl sm:text-3xl filter drop-shadow-xs inline-block"
+                      className="text-xl sm:text-3xl filter drop-shadow-xs inline-block"
                     >
                       {opt.emoji}
                     </motion.span>
                   </motion.div>
 
-                  <span className="text-[11px] sm:text-xs font-semibold tracking-wide">
+                  <span className="text-[10px] sm:text-xs font-semibold tracking-tight sm:tracking-wide">
                     {opt.label}
                   </span>
                 </motion.button>
@@ -521,7 +519,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -6 }}
                 transition={{ duration: 0.2 }}
-                className="pt-2"
+                className="pt-1"
               >
                 {!showNoteInput ? (
                   <button
@@ -576,6 +574,55 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
             )}
           </AnimatePresence>
 
+          {/* Embedded Affirmation for Your Heart Subsection */}
+          <DailyInspirationCard
+            inspirationSource={inspirationSource}
+            currentMood={selectedMood?.category || 'quiet'}
+            onOpenSettings={() => setIsSettingsOpen(true)}
+            isDarkMode={isDarkMode}
+            embedded={true}
+          />
+
+          {/* Card Bottom Actions: Customize Track & Stress Level */}
+          <div className={`pt-2 border-t flex flex-wrap items-center justify-between gap-2 text-xs ${
+            isDarkMode ? 'border-[#332B25]' : 'border-[#F0E6D8]'
+          }`}>
+            <button
+              type="button"
+              onClick={() => setIsPersonalizationOpen(true)}
+              className={`inline-flex items-center space-x-1.5 px-3.5 py-1.5 rounded-full text-xs font-semibold transition-all duration-200 border shadow-2xs hover:scale-102 cursor-pointer ${
+                isDarkMode
+                  ? 'bg-[#1C1714] text-[#E8CDAC] border-[#3D332B] hover:bg-[#2C231D]'
+                  : 'bg-white text-amber-800 border-[#ECDCC6] hover:bg-amber-50/60'
+              }`}
+            >
+              <UserPlus className="w-3.5 h-3.5 text-amber-600" />
+              <span>Customize Track &amp; Stress</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setIsOfflineToolsOpen(true)}
+              className={`inline-flex items-center space-x-1.5 px-3.5 py-1.5 rounded-full text-xs font-semibold transition-all duration-200 border shadow-2xs hover:scale-102 cursor-pointer ${
+                isDarkMode
+                  ? 'bg-amber-500/15 text-amber-300 border-amber-500/35 hover:bg-amber-500/25'
+                  : 'bg-amber-100/80 text-amber-900 border-amber-300 hover:bg-amber-200'
+              }`}
+              title="Open offline self-help tools (Journaling, Problem-Solving, Study Reflection, Stress Reset)"
+            >
+              <BookOpen className="w-3.5 h-3.5 text-amber-500" />
+              <span>Offline Tools (No AI)</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setIsSettingsOpen(true)}
+              className="text-[11px] font-medium text-amber-700/80 dark:text-amber-300/80 hover:underline cursor-pointer"
+            >
+              Active: {inspirationSource === 'affirmations' ? '✨ Affirmations' : '📖 Scripture'}
+            </button>
+          </div>
+
         </div>
 
         {/* Inline Tiered Resource Card if Tier 1 or Tier 2 detected from check-in or note */}
@@ -593,33 +640,8 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
         )}
       </section>
 
-      {/* 3. Daily Inspiration / Scripture Card (Standalone explore widget) — Inspiration tab */}
-      <section className={`max-w-xl mx-auto ${activeTab === 'inspiration' ? '' : 'hidden'} md:block`}>
-        <DailyInspirationCard
-          inspirationSource={inspirationSource}
-          currentMood={selectedMood?.category || 'quiet'}
-          onOpenSettings={() => setIsSettingsOpen(true)}
-          isDarkMode={isDarkMode}
-        />
-        {/* On mobile, add a hint to set track/stress from here too */}
-        <div className="md:hidden mt-4 text-center">
-          <button
-            type="button"
-            onClick={() => setIsPersonalizationOpen(true)}
-            className={`inline-flex items-center space-x-1.5 px-4 py-2 rounded-full text-xs font-semibold transition-colors border cursor-pointer ${
-              isDarkMode
-                ? 'bg-[#221B17] text-[#E8CDAC] border-[#3D332B]'
-                : 'bg-white text-amber-700 border-[#ECDCC6]'
-            }`}
-          >
-            <UserPlus className="w-3.5 h-3.5" />
-            <span>Tailor this to my track</span>
-          </button>
-        </div>
-      </section>
-
-      {/* 4. Three Pastel Tinted AI Companion Cards — Companions tab */}
-      <section className={`space-y-5 ${activeTab === 'companions' ? '' : 'hidden'} md:block`}>
+      {/* 4. Three Pastel Tinted AI Companion Cards */}
+      <section className="space-y-5">
         <div className="text-center space-y-1.5">
           <h2 className="text-xl sm:text-2xl font-bold tracking-tight">
             Gentle Companions
@@ -693,69 +715,10 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
         </div>
       </section>
 
-      {/* 5. Gentle Daily Encouragement Footer (Scripture or Secular Affirmation) — Resources tab */}
-      <section className={`${activeTab === 'resources' ? '' : 'hidden'} md:contents space-y-8`}>
-        {/* Quick wellness resource chips (mobile Resources tab) */}
-        <div className="md:hidden max-w-xl mx-auto space-y-4 pt-2">
-          <h2 className="text-xl font-bold tracking-tight text-center">Resources &amp; Support</h2>
-          <p className={`text-xs text-center ${isDarkMode ? 'text-[#A39486]' : 'text-[#857070]'}`}>
-            A few gentle things to reach for when you need them.
-          </p>
-          <div className="grid grid-cols-2 gap-3">
-            <button
-              type="button"
-              onClick={() => onCrisisTriggered?.(false)}
-              className={`p-4 rounded-2xl border text-left transition-all hover:-translate-y-0.5 cursor-pointer ${
-                isDarkMode ? 'bg-[#2A1D1D] border-rose-900/50' : 'bg-[#FDF3F3] border-rose-200/80'
-              }`}
-            >
-              <span className="text-2xl">🆘</span>
-              <p className="text-xs font-bold mt-2">24/7 Crisis Support</p>
-              <p className={`text-[11px] mt-0.5 leading-snug ${isDarkMode ? 'text-[#D8B9B4]' : 'text-[#A66363]'}`}>
-                Tap for hotlines &amp; guidance
-              </p>
-            </button>
-            <div className={`p-4 rounded-2xl border ${
-              isDarkMode ? 'bg-[#1A261D] border-emerald-900/40' : 'bg-[#EFF6F0] border-emerald-200/70'
-            }`}>
-              <span className="text-2xl">🌿</span>
-              <p className="text-xs font-bold mt-2">5-4-3-2-1 Grounding</p>
-              <p className={`text-[11px] mt-0.5 leading-snug ${isDarkMode ? 'text-[#A6C9B0]' : 'text-[#4F8C60]'}`}>
-                Notice 5 things you see, 4 you touch...
-              </p>
-            </div>
-            <button
-              type="button"
-              onClick={() => onCrisisTriggered?.(false)}
-              className={`p-4 rounded-2xl border text-left transition-all hover:-translate-y-0.5 cursor-pointer ${
-                isDarkMode ? 'bg-[#24303c] border-sky-900/40' : 'bg-[#E3EDF5] border-sky-200/70'
-              }`}
-            >
-              <span className="text-2xl">🧘</span>
-              <p className="text-xs font-bold mt-2">Calm Breathing</p>
-              <p className={`text-[11px] mt-0.5 leading-snug ${isDarkMode ? 'text-[#A9C6DB]' : 'text-[#4A7B99]'}`}>
-                A 12-second reset exercise
-              </p>
-            </button>
-            <button
-              type="button"
-              onClick={() => setIsPersonalizationOpen(true)}
-              className={`p-4 rounded-2xl border text-left transition-all hover:-translate-y-0.5 cursor-pointer ${
-                isDarkMode ? 'bg-[#2E1F16] border-amber-900/40' : 'bg-[#FDF3EB] border-amber-200/70'
-              }`}
-            >
-              <span className="text-2xl">🎯</span>
-              <p className="text-xs font-bold mt-2">Personalize</p>
-              <p className={`text-[11px] mt-0.5 leading-snug ${isDarkMode ? 'text-[#E5C49E]' : 'text-[#BF7B36]'}`}>
-                Set your track &amp; stress level
-              </p>
-            </button>
-          </div>
-        </div>
-
-        <footer className={`text-center pt-8 pb-4 border-t ${
-          isDarkMode ? 'border-[#332B25]' : 'border-[#EBE2D5]'
-        }`}>
+      {/* 5. Gentle Daily Encouragement Footer (Scripture or Secular Affirmation) */}
+      <footer className={`text-center pt-8 pb-4 border-t ${
+        isDarkMode ? 'border-[#332B25]' : 'border-[#EBE2D5]'
+      }`}>
         <p className={`text-xs sm:text-sm font-medium max-w-lg mx-auto leading-relaxed ${
           isDarkMode ? 'text-[#B0A294]' : 'text-[#7D6868]'
         }`}>
@@ -781,8 +744,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
             <span>About the Research Team</span>
           </button>
         )}
-        </footer>
-      </section>
+      </footer>
 
       {/* Personalization Panel */}
       <PersonalizationPanel
@@ -808,15 +770,11 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
         isDarkMode={isDarkMode}
       />
 
-      {/* Mobile Bottom Tab Bar (md:hidden) */}
-      <MobileTabBar
-        activeTab={activeTab}
-        onTabChange={(tab) => {
-          setActiveTab(tab);
-          window.scrollTo({ top: 0, behavior: 'smooth' });
-        }}
+      {/* Offline Tools Modal */}
+      <OfflineToolsModal
+        isOpen={isOfflineToolsOpen}
+        onClose={() => setIsOfflineToolsOpen(false)}
         isDarkMode={isDarkMode}
-        onOpenPersonalization={() => setIsPersonalizationOpen(true)}
       />
 
     </div>

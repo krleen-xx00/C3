@@ -103,13 +103,17 @@ interface DailyInspirationCardProps {
   currentMood?: 'heavy' | 'restless' | 'quiet' | 'warm' | 'joyful' | string;
   onOpenSettings?: () => void;
   isDarkMode?: boolean;
+  embedded?: boolean;
+  className?: string;
 }
 
 export const DailyInspirationCard: React.FC<DailyInspirationCardProps> = ({
   inspirationSource,
   currentMood = 'quiet',
   onOpenSettings,
-  isDarkMode = false
+  isDarkMode = false,
+  embedded = false,
+  className = ''
 }) => {
   const [index, setIndex] = useState<number>(0);
   const [copied, setCopied] = useState<boolean>(false);
@@ -144,33 +148,43 @@ export const DailyInspirationCard: React.FC<DailyInspirationCardProps> = ({
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 12 }}
+      initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.5, ease: "easeOut" }}
-      className={`rounded-3xl p-5 sm:p-6 border shadow-xs relative overflow-hidden flex flex-col justify-between transition-colors duration-300 ${
-        isDarkMode
-          ? 'bg-gradient-to-br from-[#241E1B] via-[#1E1916] to-[#251E1C] border-[#3D342E]'
-          : 'bg-gradient-to-br from-amber-50/70 via-white to-orange-50/40 border-amber-200/60'
-      }`}
+      transition={{ duration: 0.4, ease: "easeOut" }}
+      className={`relative overflow-hidden flex flex-col justify-between transition-colors duration-300 text-left ${
+        embedded
+          ? `rounded-2xl p-4 sm:p-5 border ${
+              isDarkMode
+                ? 'bg-[#1D1714]/80 border-[#382E26] shadow-none'
+                : 'bg-gradient-to-br from-amber-50/70 via-white to-orange-50/30 border-amber-200/60 shadow-2xs'
+            }`
+          : `rounded-3xl p-5 sm:p-6 border shadow-xs ${
+              isDarkMode
+                ? 'bg-gradient-to-br from-[#241E1B] via-[#1E1916] to-[#251E1C] border-[#3D342E]'
+                : 'bg-gradient-to-br from-amber-50/70 via-white to-orange-50/40 border-amber-200/60'
+            }`
+      } ${className}`}
     >
       {/* Decorative Gold Side Accent Line */}
-      <div className="absolute top-0 left-0 w-1.5 h-full bg-gradient-to-b from-amber-400 via-orange-400 to-amber-500 rounded-l-3xl" />
+      <div className={`absolute top-0 left-0 w-1.5 h-full bg-gradient-to-b from-amber-400 via-orange-400 to-amber-500 ${
+        embedded ? 'rounded-l-2xl' : 'rounded-l-3xl'
+      }`} />
 
       <div>
         {/* Header Bar */}
-        <div className="flex items-center justify-between mb-3 pl-2">
-          <div className="flex items-center space-x-2">
-            <div className={`p-1.5 rounded-xl ${
+        <div className="flex items-center justify-between mb-2.5 pl-2">
+          <div className="flex items-center space-x-1.5 sm:space-x-2">
+            <div className={`p-1.5 rounded-xl shrink-0 ${
               isDarkMode ? 'bg-amber-950/80 text-amber-300' : 'bg-amber-100 text-amber-700'
             }`}>
               {inspirationSource === 'affirmations' ? <Sparkles className="w-3.5 h-3.5" /> : <BookOpen className="w-3.5 h-3.5" />}
             </div>
-            <span className={`text-xs font-bold uppercase tracking-wider ${
+            <span className={`text-[11px] sm:text-xs font-bold uppercase tracking-wider ${
               isDarkMode ? 'text-amber-300' : 'text-amber-800'
             }`}>
               {inspirationSource === 'affirmations' ? 'Affirmation for Your Heart' : 'Scripture for Your Heart'}
             </span>
-            <span className={`text-[10px] px-2 py-0.5 rounded-full font-semibold border ${
+            <span className={`hidden xs:inline-block text-[10px] px-2 py-0.5 rounded-full font-semibold border ${
               isDarkMode
                 ? 'bg-amber-950/60 text-amber-300 border-amber-800/50'
                 : 'bg-amber-100/80 text-amber-800 border-amber-200/50'
@@ -179,13 +193,14 @@ export const DailyInspirationCard: React.FC<DailyInspirationCardProps> = ({
             </span>
           </div>
 
-          <div className="flex items-center space-x-1">
+          <div className="flex items-center space-x-1 shrink-0">
             {onOpenSettings && (
               <button
                 type="button"
                 onClick={onOpenSettings}
-                className="p-1.5 text-slate-400 hover:text-amber-600 dark:hover:text-amber-300 rounded-lg hover:bg-amber-100/50 dark:hover:bg-amber-950/50 transition-colors"
-                title="Change Inspiration Source (Affirmations / Scripture)"
+                className="p-1.5 text-slate-400 hover:text-amber-600 dark:hover:text-amber-300 rounded-lg hover:bg-amber-100/50 dark:hover:bg-amber-950/50 transition-colors cursor-pointer"
+                title="Change Inspiration Source"
+                aria-label="Change Inspiration Source"
               >
                 <Settings className="w-3.5 h-3.5" />
               </button>
@@ -193,16 +208,18 @@ export const DailyInspirationCard: React.FC<DailyInspirationCardProps> = ({
             <button
               type="button"
               onClick={handleCopy}
-              className="p-1.5 text-slate-400 hover:text-amber-600 dark:hover:text-amber-300 rounded-lg hover:bg-amber-100/50 dark:hover:bg-amber-950/50 transition-colors"
-              title="Copy"
+              className="p-1.5 text-slate-400 hover:text-amber-600 dark:hover:text-amber-300 rounded-lg hover:bg-amber-100/50 dark:hover:bg-amber-950/50 transition-colors cursor-pointer"
+              title="Copy quote"
+              aria-label="Copy quote"
             >
               {copied ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Bookmark className="w-3.5 h-3.5" />}
             </button>
             <button
               type="button"
               onClick={handleNext}
-              className="p-1.5 text-slate-400 hover:text-amber-600 dark:hover:text-amber-300 rounded-lg hover:bg-amber-100/50 dark:hover:bg-amber-950/50 transition-colors"
-              title="Next Inspiration"
+              className="p-1.5 text-slate-400 hover:text-amber-600 dark:hover:text-amber-300 rounded-lg hover:bg-amber-100/50 dark:hover:bg-amber-950/50 transition-colors cursor-pointer"
+              title="Next inspiration"
+              aria-label="Next inspiration"
             >
               <RefreshCw className="w-3.5 h-3.5" />
             </button>
@@ -218,13 +235,13 @@ export const DailyInspirationCard: React.FC<DailyInspirationCardProps> = ({
                 initial={{ opacity: 0, x: 8 }}
                 animate={{ opacity: 1, x: 0 }}
                 exit={{ opacity: 0, x: -8 }}
-                transition={{ duration: 0.25 }}
+                transition={{ duration: 0.22 }}
               >
                 <p className="text-xs sm:text-sm font-medium text-slate-800 dark:text-slate-200 leading-relaxed font-sans">
                   "{currentAffirmation.text}"
                 </p>
-                <p className="mt-2 text-xs font-bold text-amber-700 dark:text-amber-400 flex items-center space-x-1">
-                  <span>— Secular Mood Reflection</span>
+                <p className="mt-1.5 text-[11px] sm:text-xs font-bold text-amber-700 dark:text-amber-400 flex items-center space-x-1">
+                  <span>— Gentle Reflection</span>
                   <Sparkles className="w-3 h-3 text-amber-500 inline ml-1" />
                 </p>
               </motion.div>
@@ -234,12 +251,12 @@ export const DailyInspirationCard: React.FC<DailyInspirationCardProps> = ({
                 initial={{ opacity: 0, x: 8 }}
                 animate={{ opacity: 1, x: 0 }}
                 exit={{ opacity: 0, x: -8 }}
-                transition={{ duration: 0.25 }}
+                transition={{ duration: 0.22 }}
               >
                 <p className="text-xs sm:text-sm font-medium text-slate-800 dark:text-slate-200 italic leading-relaxed font-sans">
                   "{currentVerse.text}"
                 </p>
-                <p className="mt-2 text-xs font-bold text-amber-700 dark:text-amber-400 flex items-center space-x-1">
+                <p className="mt-1.5 text-[11px] sm:text-xs font-bold text-amber-700 dark:text-amber-400 flex items-center space-x-1">
                   <span>— {currentVerse.reference}</span>
                   <Sparkles className="w-3 h-3 text-amber-500 inline ml-1" />
                 </p>
@@ -250,21 +267,23 @@ export const DailyInspirationCard: React.FC<DailyInspirationCardProps> = ({
       </div>
 
       {/* Footer Hint */}
-      <div className={`mt-4 pl-2 pt-2 border-t flex items-center justify-between text-[10px] text-slate-400 ${
+      <div className={`mt-3 pl-2 pt-2 border-t flex items-center justify-between text-[10px] sm:text-[11px] text-slate-400 ${
         isDarkMode ? 'border-amber-900/30' : 'border-amber-100'
       }`}>
         <div className="flex items-center space-x-1.5">
-          <span>{inspirationSource === 'affirmations' ? 'Daily Affirmations' : 'Scripture Verses'}</span>
+          <span className="font-medium text-slate-500 dark:text-slate-400">
+            {inspirationSource === 'affirmations' ? 'Daily Affirmations' : 'Scripture Verses'}
+          </span>
           <span>•</span>
           <button
             type="button"
             onClick={onOpenSettings}
-            className="text-amber-600 dark:text-amber-400 font-semibold hover:underline"
+            className="text-amber-600 dark:text-amber-400 font-semibold hover:underline cursor-pointer"
           >
-            Switch to {inspirationSource === 'affirmations' ? 'Scripture' : 'Affirmations only'}
+            Switch to {inspirationSource === 'affirmations' ? 'Scripture' : 'Affirmations'}
           </button>
         </div>
-        {copied && <span className="text-emerald-600 font-bold">Copied!</span>}
+        {copied && <span className="text-emerald-600 dark:text-emerald-400 font-bold">Copied!</span>}
       </div>
     </motion.div>
   );

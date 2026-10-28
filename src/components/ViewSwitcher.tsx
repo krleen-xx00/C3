@@ -19,7 +19,7 @@ export const ViewSwitcher: React.FC<ViewSwitcherProps> = ({
   return (
     <div
       id="view-mode-switcher"
-      className={`flex items-center p-1 rounded-full border transition-all duration-300 shadow-[0_2px_14px_rgba(0,0,0,0.06)] backdrop-blur-md ${
+      className={`flex items-center p-0.5 sm:p-1 rounded-full border transition-all duration-300 shadow-[0_2px_14px_rgba(0,0,0,0.06)] backdrop-blur-md ${
         isDarkMode
           ? 'bg-[#221C18]/90 border-[#3D332B]'
           : 'bg-white/90 border-[#E8DFC0]'
@@ -34,7 +34,7 @@ export const ViewSwitcher: React.FC<ViewSwitcherProps> = ({
         role="tab"
         aria-selected={viewMode === 'student'}
         onClick={() => onViewChange('student')}
-        className={`flex items-center space-x-1.5 px-2.5 sm:px-3 py-1.5 rounded-full text-xs font-bold tracking-tight transition-all duration-200 cursor-pointer ${
+        className={`flex items-center space-x-1 sm:space-x-1.5 px-2 sm:px-3 py-1 sm:py-1.5 rounded-full text-[11px] sm:text-xs font-bold tracking-tight transition-all duration-200 cursor-pointer ${
           viewMode === 'student'
             ? isDarkMode
               ? 'bg-[#3D2E22] text-[#F9E6CD] shadow-xs ring-1 ring-[#5C4533]'
@@ -44,18 +44,18 @@ export const ViewSwitcher: React.FC<ViewSwitcherProps> = ({
               : 'text-[#7D665B] hover:text-[#3D2C2C] hover:bg-[#F8F2EA]'
         }`}
       >
-        <Sparkles className={`w-3.5 h-3.5 ${viewMode === 'student' ? 'text-amber-500' : ''}`} />
+        <Sparkles className={`w-3 h-3 sm:w-3.5 sm:h-3.5 ${viewMode === 'student' ? 'text-amber-500' : ''}`} />
         <span>Wellness</span>
       </button>
 
-      {/* 2. Counselor View Tab (Placed right beside Student View) */}
+      {/* 2. Counselor View Tab */}
       <button
         type="button"
         id="btn-counselor-view"
         role="tab"
         aria-selected={viewMode === 'counselor'}
         onClick={() => onViewChange('counselor')}
-        className={`flex items-center space-x-1.5 px-2.5 sm:px-3 py-1.5 rounded-full text-xs font-bold tracking-tight transition-all duration-200 cursor-pointer ${
+        className={`flex items-center space-x-1 sm:space-x-1.5 px-2 sm:px-3 py-1 sm:py-1.5 rounded-full text-[11px] sm:text-xs font-bold tracking-tight transition-all duration-200 cursor-pointer ${
           viewMode === 'counselor'
             ? isDarkMode
               ? 'bg-[#D4A373] text-[#1E1712] font-extrabold shadow-xs ring-1 ring-[#E8BE92]'
@@ -65,9 +65,9 @@ export const ViewSwitcher: React.FC<ViewSwitcherProps> = ({
               : 'text-[#7D665B] hover:text-[#3D2C2C] hover:bg-[#F8F2EA]'
         }`}
       >
-        <Shield className="w-3.5 h-3.5" />
-        <span className="hidden md:inline">Counselor View</span>
-        <span className="inline md:hidden">Counselor</span>
+        <Shield className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
+        <span className="hidden lg:inline">Counselor View</span>
+        <span className="inline lg:hidden">Counselor</span>
       </button>
 
       {/* 3. AI Companions Tab */}
@@ -77,7 +77,7 @@ export const ViewSwitcher: React.FC<ViewSwitcherProps> = ({
         role="tab"
         aria-selected={viewMode === 'companions'}
         onClick={() => onViewChange('companions')}
-        className={`flex items-center space-x-1.5 px-2.5 sm:px-3 py-1.5 rounded-full text-xs font-bold tracking-tight transition-all duration-200 cursor-pointer ${
+        className={`flex items-center space-x-1 sm:space-x-1.5 px-2 sm:px-3 py-1 sm:py-1.5 rounded-full text-[11px] sm:text-xs font-bold tracking-tight transition-all duration-200 cursor-pointer ${
           viewMode === 'companions'
             ? isDarkMode
               ? 'bg-[#332244] text-[#EADCF7] shadow-xs ring-1 ring-[#5E3D80]'
@@ -87,9 +87,9 @@ export const ViewSwitcher: React.FC<ViewSwitcherProps> = ({
               : 'text-[#7D665B] hover:text-[#3D2C2C] hover:bg-[#F8F2EA]'
         }`}
       >
-        <Bot className={`w-3.5 h-3.5 ${viewMode === 'companions' ? (isDarkMode ? 'text-purple-300' : 'text-purple-600') : ''}`} />
-        <span className="hidden md:inline">AI Companions</span>
-        <span className="inline md:hidden">Companions</span>
+        <Bot className={`w-3 h-3 sm:w-3.5 sm:h-3.5 ${viewMode === 'companions' ? (isDarkMode ? 'text-purple-300' : 'text-purple-600') : ''}`} />
+        <span className="hidden lg:inline">AI Companions</span>
+        <span className="inline lg:hidden">Companions</span>
       </button>
 
       {/* 4. About & Presentation Deck Tab */}
@@ -99,7 +99,7 @@ export const ViewSwitcher: React.FC<ViewSwitcherProps> = ({
         role="tab"
         aria-selected={viewMode === 'about'}
         onClick={() => onViewChange('about')}
-        className={`flex items-center space-x-1.5 px-2.5 sm:px-3 py-1.5 rounded-full text-xs font-bold tracking-tight transition-all duration-200 cursor-pointer ${
+        className={`flex items-center space-x-1 sm:space-x-1.5 px-2 sm:px-3 py-1 sm:py-1.5 rounded-full text-[11px] sm:text-xs font-bold tracking-tight transition-all duration-200 cursor-pointer ${
           viewMode === 'about'
             ? isDarkMode
               ? 'bg-[#1F3D27] text-[#C2F2CF] shadow-xs ring-1 ring-[#2E5E3C]'
@@ -109,9 +109,9 @@ export const ViewSwitcher: React.FC<ViewSwitcherProps> = ({
               : 'text-[#7D665B] hover:text-[#3D2C2C] hover:bg-[#F8F2EA]'
         }`}
       >
-        <Presentation className={`w-3.5 h-3.5 ${viewMode === 'about' ? (isDarkMode ? 'text-[#84E19C]' : 'text-[#A3EBB6]') : ''}`} />
-        <span className="hidden md:inline">About &amp; Deck</span>
-        <span className="inline md:hidden">About</span>
+        <Presentation className={`w-3 h-3 sm:w-3.5 sm:h-3.5 ${viewMode === 'about' ? (isDarkMode ? 'text-[#84E19C]' : 'text-[#A3EBB6]') : ''}`} />
+        <span className="hidden lg:inline">About &amp; Deck</span>
+        <span className="inline lg:hidden">About</span>
       </button>
     </div>
   );

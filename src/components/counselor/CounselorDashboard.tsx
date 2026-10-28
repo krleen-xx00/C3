@@ -19,7 +19,16 @@ import {
   LogOut,
   UserCheck,
   Building2,
-  FileBadge
+  FileBadge,
+  AlertTriangle,
+  X,
+  Search,
+  ExternalLink,
+  ChevronDown,
+  ChevronUp,
+  FileText,
+  ShieldCheck,
+  MessageSquare
 } from 'lucide-react';
 import {
   ResponsiveContainer,
@@ -39,8 +48,17 @@ import {
   setActiveCounselorSession,
   DEFAULT_COUNSELORS
 } from '../../data/counselorData';
+import {
+  FlaggedRiskItem,
+  getFlaggedRiskLogs,
+  markRiskLogReviewed,
+  dismissRiskLog,
+  escalateRiskLog,
+  ManualEscalationRecord
+} from '../../data/flaggedRiskData';
 import { CounselorAuthView } from './CounselorAuthView';
 import { CounselorProfileModal } from './CounselorProfileModal';
+import { ManualEscalationModal } from './ManualEscalationModal';
 
 export interface CounselorAlert {
   id: string;
@@ -106,26 +124,6 @@ const INITIAL_COUNSELOR_ALERTS: CounselorAlert[] = [
     type: 'student_requested',
     flagReason: 'Student submitted a direct request for a 1-on-1 counseling slot regarding family expectations and career anxiety.',
     status: 'active'
-  },
-  {
-    id: 'alt_006',
-    studentName: 'Hannah Beatrice Tolentino',
-    gradeSection: 'Grade 11 - STEM B',
-    timestamp: '2026-08-26T16:15:00Z',
-    timeAgo: 'Yesterday at 4:15 PM',
-    type: 'high_priority',
-    flagReason: 'Companion safety protocol flagged abrupt mood decline paired with negative self-appraisal during exam week.',
-    status: 'active'
-  },
-  {
-    id: 'alt_007',
-    studentName: 'John David Manalo',
-    gradeSection: 'Grade 12 - GAS',
-    timestamp: '2026-08-26T13:10:00Z',
-    timeAgo: 'Yesterday at 1:10 PM',
-    type: 'student_requested',
-    flagReason: 'Student requested guidance consultation regarding peer dynamics and group project conflict.',
-    status: 'active'
   }
 ];
 
@@ -138,10 +136,9 @@ interface MoodTrendPoint {
   Joyful: number;
 }
 
-// 4-week sample data representing school-wide anonymized mood distribution
 const SCHOOL_MOOD_TRENDS_DATA: MoodTrendPoint[] = [
   {
-    label: 'Week 1 (Aug 1-7)',
+    label: 'Week 1 (Oct 1-7)',
     Heavy: 42,
     Restless: 68,
     Quiet: 110,
@@ -149,7 +146,7 @@ const SCHOOL_MOOD_TRENDS_DATA: MoodTrendPoint[] = [
     Joyful: 145
   },
   {
-    label: 'Week 2 (Aug 8-14)',
+    label: 'Week 2 (Oct 8-14)',
     Heavy: 58,
     Restless: 94,
     Quiet: 125,
@@ -157,7 +154,7 @@ const SCHOOL_MOOD_TRENDS_DATA: MoodTrendPoint[] = [
     Joyful: 132
   },
   {
-    label: 'Week 3 (Aug 15-21 - Exams)',
+    label: 'Week 3 (Oct 15-21 - Exams)',
     Heavy: 89,
     Restless: 142,
     Quiet: 118,
@@ -165,7 +162,7 @@ const SCHOOL_MOOD_TRENDS_DATA: MoodTrendPoint[] = [
     Joyful: 98
   },
   {
-    label: 'Week 4 (Aug 22-27 - Current)',
+    label: 'Week 4 (Current Week)',
     Heavy: 45,
     Restless: 76,
     Quiet: 130,
@@ -195,10 +192,37 @@ export const CounselorDashboard: React.FC<CounselorDashboardProps> = ({ isDarkMo
   });
   const [isProfileModalOpen, setIsProfileModalOpen] = useState<boolean>(false);
 
-  const [activeViewTab, setActiveViewTab] = useState<'alerts' | 'trends'>('alerts');
+  // Tab State: 'risk-log' (Flagged Risk Log), 'queue' (Referral Queue), 'trends' (Mood Analytics)
+  const [activeViewTab, setActiveViewTab] = useState<'risk-log' | 'queue' | 'trends'>('risk-log');
+
+  // Flagged Risk Log State
+  const [flaggedRiskLogs, setFlaggedRiskLogs] = useState<FlaggedRiskItem[]>(() => getFlaggedRiskLogs());
+  const [selectedRiskFilter, setSelectedRiskFilter] = useState<'ALL' | 'New' | 'Reviewed' | 'Escalated' | 'Dismissed'>('ALL');
+  const [riskSearchQuery, setRiskSearchQuery] = useState<string>('');
+  const [expandedLogId, setExpandedLogId] = useState<string | null>(null);
+
+  // Escalation Modal State
+  const [escalationTargetItem, setEscalationTargetItem] = useState<FlaggedRiskItem | null>(null);
+  const [isEscalationModalOpen, setIsEscalationModalOpen] = useState<boolean>(false);
+
+  // Dismiss Modal State
+  const [dismissTargetItem, setDismissTargetItem] = useState<FlaggedRiskItem | null>(null);
+  const [dismissReasonInput, setDismissReasonInput] = useState<string>('');
+  const [isDismissModalOpen, setIsDismissModalOpen] = useState<boolean>(false);
+
+  // Referral alerts state
   const [alertsSubTab, setAlertsSubTab] = useState<'active' | 'resolved'>('active');
   const [alerts, setAlerts] = useState<CounselorAlert[]>(INITIAL_COUNSELOR_ALERTS);
   const [selectedChartRange, setSelectedChartRange] = useState<'weekly' | 'daily'>('weekly');
+
+  // Sync flagged risks on mount
+  useEffect(() => {
+    const handleStorageChange = () => {
+      setFlaggedRiskLogs(getFlaggedRiskLogs());
+    };
+    window.addEventListener('storage', handleStorageChange);
+    return () => window.removeEventListener('storage', handleStorageChange);
+  }, []);
 
   const handleLoginSuccess = (counselor: CounselorUser) => {
     setActiveCounselor(counselor);
@@ -210,6 +234,38 @@ export const CounselorDashboard: React.FC<CounselorDashboardProps> = ({ isDarkMo
     setActiveCounselorSession(null);
   };
 
+  // Flagged Risk Log Actions
+  const handleMarkAsReviewed = (id: string) => {
+    if (!activeCounselor) return;
+    const updated = markRiskLogReviewed(id, activeCounselor.name);
+    setFlaggedRiskLogs(updated);
+  };
+
+  const handleOpenDismissModal = (item: FlaggedRiskItem) => {
+    setDismissTargetItem(item);
+    setDismissReasonInput('False Alarm / Conversational expression without clinical intent. Reviewed by counselor.');
+    setIsDismissModalOpen(true);
+  };
+
+  const handleConfirmDismiss = () => {
+    if (!dismissTargetItem || !activeCounselor) return;
+    const updated = dismissRiskLog(dismissTargetItem.id, dismissReasonInput, activeCounselor.name);
+    setFlaggedRiskLogs(updated);
+    setIsDismissModalOpen(false);
+    setDismissTargetItem(null);
+  };
+
+  const handleOpenEscalationModal = (item: FlaggedRiskItem) => {
+    setEscalationTargetItem(item);
+    setIsEscalationModalOpen(true);
+  };
+
+  const handleConfirmEscalation = (id: string, record: ManualEscalationRecord) => {
+    const updated = escalateRiskLog(id, record);
+    setFlaggedRiskLogs(updated);
+  };
+
+  // Referral Queue actions
   const handleMarkAsContacted = (alertId: string) => {
     setAlerts(prev =>
       prev.map(a => {
@@ -253,7 +309,7 @@ export const CounselorDashboard: React.FC<CounselorDashboardProps> = ({ isDarkMo
     );
   };
 
-  // If counselor is not logged in, show the Login & Sign Up page
+  // If counselor is not logged in, show the secure counselor login & sign-up portal
   if (!activeCounselor) {
     return (
       <CounselorAuthView
@@ -263,7 +319,21 @@ export const CounselorDashboard: React.FC<CounselorDashboardProps> = ({ isDarkMo
     );
   }
 
-  // Active alerts: sort by urgency first (high_priority before student_requested), then by recency
+  // Filtered Flagged Risk Logs
+  const filteredRiskLogs = flaggedRiskLogs.filter(item => {
+    const matchesFilter = selectedRiskFilter === 'ALL' || item.status === selectedRiskFilter;
+    const query = riskSearchQuery.toLowerCase().trim();
+    const matchesSearch = !query ||
+      item.anonymizedStudentId.toLowerCase().includes(query) ||
+      item.companionUsed.toLowerCase().includes(query) ||
+      item.flaggedSnippet.toLowerCase().includes(query) ||
+      item.gradeSection.toLowerCase().includes(query);
+    return matchesFilter && matchesSearch;
+  });
+
+  const newRiskCount = flaggedRiskLogs.filter(item => item.status === 'New').length;
+  const highRiskCount = flaggedRiskLogs.filter(item => item.riskLevel === 'High' && item.status !== 'Dismissed').length;
+
   const activeAlerts = alerts
     .filter(a => a.status === 'active' || a.status === 'contacted')
     .sort((a, b) => {
@@ -276,11 +346,8 @@ export const CounselorDashboard: React.FC<CounselorDashboardProps> = ({ isDarkMo
     .filter(a => a.status === 'resolved')
     .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
 
-  const highPriorityCount = activeAlerts.filter(a => a.type === 'high_priority').length;
-  const studentRequestedCount = activeAlerts.filter(a => a.type === 'student_requested').length;
-
   return (
-    <div className="w-full max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 pt-20 sm:pt-24 pb-16 space-y-6">
+    <div className="w-full max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 pt-20 sm:pt-24 pb-16 space-y-6">
       
       {/* Counselor View Header Bar with Active Logged-in Counselor Details */}
       <div
@@ -298,7 +365,7 @@ export const CounselorDashboard: React.FC<CounselorDashboardProps> = ({ isDarkMo
             <div className="w-10 h-10 rounded-full p-0.5 bg-white ring-1 ring-amber-500/30 flex items-center justify-center shrink-0 shadow-xs">
               <img
                 src="/logo.png"
-                alt="School Seal"
+                alt="Cabiao SHS Seal"
                 className="w-full h-full object-contain rounded-full"
               />
             </div>
@@ -318,7 +385,7 @@ export const CounselorDashboard: React.FC<CounselorDashboardProps> = ({ isDarkMo
                       : 'bg-[#FFF6EC] text-[#9E632B] border-[#F2DAC4]'
                   }`}
                 >
-                  Guidance Counselor Portal
+                  Guidance Counselor Workspace
                 </span>
               </div>
               <p className={`text-[11px] font-medium ${isDarkMode ? 'text-[#A09080]' : 'text-[#7D6B5E]'}`}>
@@ -404,42 +471,98 @@ export const CounselorDashboard: React.FC<CounselorDashboardProps> = ({ isDarkMo
         </div>
       </div>
 
-      {/* Main Tab Switcher: Flagged Alerts Queue vs School-Wide Mood Trends */}
+      {/* PROMINENT SAFETY DISCLAIMER BANNER (MANDATORY HUMAN-IN-THE-LOOP SAFETY PROTOCOL) */}
+      <div
+        id="safety-disclaimer-banner"
+        className={`p-4 sm:p-5 rounded-3xl border shadow-sm relative overflow-hidden transition-all duration-300 ${
+          isDarkMode
+            ? 'bg-gradient-to-r from-[#291E15] via-[#241A14] to-[#1F1712] border-[#4D3724] text-[#F5DEBE]'
+            : 'bg-gradient-to-r from-[#FFF8EE] via-[#FFF3E2] to-[#FAF0DE] border-[#ECD5B8] text-[#69421A]'
+        }`}
+      >
+        <div className="flex items-start space-x-3.5">
+          <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-2xl bg-amber-500/20 border border-amber-500/30 flex items-center justify-center text-amber-600 dark:text-amber-400 shrink-0 mt-0.5 shadow-xs">
+            <Lock className="w-5 h-5" />
+          </div>
+          <div className="space-y-1">
+            <div className="flex items-center space-x-2 flex-wrap">
+              <span className="text-xs sm:text-sm font-black uppercase tracking-wider text-amber-700 dark:text-amber-300 flex items-center space-x-1.5">
+                <ShieldAlert className="w-4 h-4" />
+                <span>PRIVACY &amp; HUMAN ESCALATION PROTOCOL</span>
+              </span>
+              <span className="text-[10px] px-2 py-0.5 rounded-full font-bold bg-amber-500/15 border border-amber-500/25">
+                Human-in-the-Loop Safeguard
+              </span>
+            </div>
+            <p className="text-xs sm:text-[13px] leading-relaxed font-medium">
+              Automated alerts are sent strictly to the Guidance Counselor Dashboard. No automated messages are ever sent directly to parents. Any parent notification must be conducted manually and personally by a guidance counselor after human review.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* Main Tab Switcher: Flagged Risk Log vs Active Queue vs School-Wide Mood Trends */}
       <div className="flex items-center justify-between border-b pb-3 gap-2 flex-wrap" style={{ borderColor: isDarkMode ? '#382E27' : '#E8DDD0' }}>
-        <div className="flex items-center space-x-2">
+        <div className="flex items-center space-x-2 flex-wrap gap-y-2">
+          {/* TAB 1: FLAGGED RISK LOG */}
           <button
             type="button"
-            id="tab-flagged-alerts"
-            onClick={() => setActiveViewTab('alerts')}
+            id="tab-flagged-risk-log"
+            onClick={() => setActiveViewTab('risk-log')}
             className={`px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold transition-all flex items-center space-x-2 cursor-pointer ${
-              activeViewTab === 'alerts'
+              activeViewTab === 'risk-log'
                 ? isDarkMode
-                  ? 'bg-[#D4A373] text-[#1E1712] shadow-sm font-bold'
-                  : 'bg-[#8F5B34] text-white shadow-sm font-bold'
+                  ? 'bg-[#D4A373] text-[#1E1712] shadow-sm font-black'
+                  : 'bg-[#8F5B34] text-white shadow-sm font-black'
                 : isDarkMode
                 ? 'bg-[#241E1A] text-[#B8A796] hover:text-[#EDE5DB] border border-[#3A3028]'
                 : 'bg-white text-[#6E5959] hover:text-[#3D2C2C] border border-[#E8DDD0]'
             }`}
           >
             <ShieldAlert className="w-4 h-4" />
-            <span>Flagged Alerts Queue</span>
-            {activeAlerts.length > 0 && (
+            <span>Flagged Risk Log</span>
+            {newRiskCount > 0 && (
               <span
-                className={`px-1.5 py-0.2 rounded-full text-[10px] font-black ${
-                  activeViewTab === 'alerts'
+                className={`px-2 py-0.2 rounded-full text-[10px] font-black ${
+                  activeViewTab === 'risk-log'
                     ? isDarkMode
                       ? 'bg-[#1E1712] text-[#D4A373]'
                       : 'bg-white text-[#8F5B34]'
                     : isDarkMode
-                    ? 'bg-[#3D251C] text-[#F87171]'
+                    ? 'bg-[#4A2621] text-[#FCA5A5]'
                     : 'bg-[#FEE2E2] text-[#DC2626]'
                 }`}
               >
+                {newRiskCount} New
+              </span>
+            )}
+          </button>
+
+          {/* TAB 2: REFERRAL QUEUE */}
+          <button
+            type="button"
+            id="tab-guidance-queue"
+            onClick={() => setActiveViewTab('queue')}
+            className={`px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold transition-all flex items-center space-x-2 cursor-pointer ${
+              activeViewTab === 'queue'
+                ? isDarkMode
+                  ? 'bg-[#D4A373] text-[#1E1712] shadow-sm font-black'
+                  : 'bg-[#8F5B34] text-white shadow-sm font-black'
+                : isDarkMode
+                ? 'bg-[#241E1A] text-[#B8A796] hover:text-[#EDE5DB] border border-[#3A3028]'
+                : 'bg-white text-[#6E5959] hover:text-[#3D2C2C] border border-[#E8DDD0]'
+            }`}
+          >
+            <Users className="w-4 h-4" />
+            <span>Direct Referral Queue</span>
+            {activeAlerts.length > 0 && (
+              <span className="px-1.5 py-0.2 rounded-full text-[10px] font-bold bg-amber-500/20 text-amber-700 dark:text-amber-300">
                 {activeAlerts.length}
               </span>
             )}
           </button>
 
+          {/* TAB 3: MOOD TRENDS */}
           <button
             type="button"
             id="tab-mood-trends"
@@ -447,8 +570,8 @@ export const CounselorDashboard: React.FC<CounselorDashboardProps> = ({ isDarkMo
             className={`px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold transition-all flex items-center space-x-2 cursor-pointer ${
               activeViewTab === 'trends'
                 ? isDarkMode
-                  ? 'bg-[#D4A373] text-[#1E1712] shadow-sm font-bold'
-                  : 'bg-[#8F5B34] text-white shadow-sm font-bold'
+                  ? 'bg-[#D4A373] text-[#1E1712] shadow-sm font-black'
+                  : 'bg-[#8F5B34] text-white shadow-sm font-black'
                 : isDarkMode
                 ? 'bg-[#241E1A] text-[#B8A796] hover:text-[#EDE5DB] border border-[#3A3028]'
                 : 'bg-white text-[#6E5959] hover:text-[#3D2C2C] border border-[#E8DDD0]'
@@ -459,19 +582,395 @@ export const CounselorDashboard: React.FC<CounselorDashboardProps> = ({ isDarkMo
           </button>
         </div>
 
-        {/* Quiet ethics indicator */}
+        {/* Quiet confidentiality badge */}
         <div
           className={`flex items-center space-x-1.5 text-[11px] font-medium ${
             isDarkMode ? 'text-[#968677]' : 'text-[#8C7575]'
           }`}
         >
           <Lock className="w-3.5 h-3.5 opacity-80" />
-          <span>Confidential Triage &amp; Anonymized Aggregates</span>
+          <span>R.A. 9258 Guidance Triage • Anonymized Identifiers</span>
         </div>
       </div>
 
-      {/* VIEW 1: FLAGGED ALERTS QUEUE */}
-      {activeViewTab === 'alerts' && (
+      {/* VIEW 1: FLAGGED RISK LOG TABLE (CORE REQUIREMENT) */}
+      {activeViewTab === 'risk-log' && (
+        <div className="space-y-4">
+          
+          {/* Filter Bar & Search */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="flex items-center space-x-1.5 sm:space-x-2 flex-wrap gap-y-1.5">
+              {(['ALL', 'New', 'Reviewed', 'Escalated', 'Dismissed'] as const).map(filterKey => {
+                const count = filterKey === 'ALL'
+                  ? flaggedRiskLogs.length
+                  : flaggedRiskLogs.filter(i => i.status === filterKey).length;
+
+                return (
+                  <button
+                    key={filterKey}
+                    type="button"
+                    onClick={() => setSelectedRiskFilter(filterKey)}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer flex items-center space-x-1.5 ${
+                      selectedRiskFilter === filterKey
+                        ? isDarkMode
+                          ? 'bg-[#3D2E22] text-[#F9E6CD] border border-[#5C4533] shadow-xs'
+                          : 'bg-[#EAE0D2] text-[#3D2C2C] border border-[#D5C6B3] shadow-xs'
+                        : isDarkMode
+                        ? 'text-[#A8988A] hover:text-[#EDE5DB] hover:bg-[#251E19]'
+                        : 'text-[#7D6666] hover:text-[#3D2C2C] hover:bg-[#FAF4EB]'
+                    }`}
+                  >
+                    <span>{filterKey === 'ALL' ? 'All Alerts' : filterKey}</span>
+                    <span className="text-[10px] font-black opacity-80">({count})</span>
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Search Box */}
+            <div className="relative min-w-[240px]">
+              <Search className={`w-3.5 h-3.5 absolute left-3 top-2.5 ${isDarkMode ? 'text-[#8A796B]' : 'text-[#9C8888]'}`} />
+              <input
+                type="text"
+                value={riskSearchQuery}
+                onChange={(e) => setRiskSearchQuery(e.target.value)}
+                placeholder="Filter by STU ID, snippet, companion..."
+                className={`w-full pl-9 pr-3 py-1.5 rounded-xl border text-xs focus:outline-none transition-colors ${
+                  isDarkMode
+                    ? 'bg-[#181310] border-[#382E27] text-[#EDE5DB] placeholder-[#66574D] focus:ring-1 focus:ring-amber-500'
+                    : 'bg-[#FAF7F2] border-[#E8DFD3] text-[#3D2C2C] placeholder-[#B5A4A4] focus:ring-1 focus:ring-amber-500'
+                }`}
+              />
+              {riskSearchQuery && (
+                <button
+                  type="button"
+                  onClick={() => setRiskSearchQuery('')}
+                  className="absolute right-2.5 top-2 text-xs opacity-60 hover:opacity-100"
+                >
+                  ✕
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* FLAGGED RISK LOG TABLE */}
+          <div
+            className={`rounded-3xl border shadow-md overflow-hidden ${
+              isDarkMode ? 'bg-[#1D1714] border-[#382E27]' : 'bg-white border-[#E8DDD0]'
+            }`}
+          >
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse text-xs sm:text-[13px]">
+                {/* Table Header */}
+                <thead>
+                  <tr
+                    className={`border-b text-[11px] font-bold uppercase tracking-wider ${
+                      isDarkMode
+                        ? 'bg-[#251D19] border-[#382E27] text-[#C9BAAB]'
+                        : 'bg-[#FAF4EB] border-[#E8DDD0] text-[#7A6152]'
+                    }`}
+                  >
+                    <th className="py-3.5 px-4 font-bold">Timestamp</th>
+                    <th className="py-3.5 px-3 font-bold">Student ID (Anonymized)</th>
+                    <th className="py-3.5 px-3 font-bold">Companion</th>
+                    <th className="py-3.5 px-4 font-bold min-w-[260px]">Flagged Snippet</th>
+                    <th className="py-3.5 px-3 font-bold">Risk Level</th>
+                    <th className="py-3.5 px-3 font-bold">Status</th>
+                    <th className="py-3.5 px-4 font-bold text-right">Counselor Actions</th>
+                  </tr>
+                </thead>
+
+                {/* Table Body */}
+                <tbody className={`divide-y ${isDarkMode ? 'divide-[#2E241E]' : 'divide-[#F2EAE0]'}`}>
+                  {filteredRiskLogs.length === 0 ? (
+                    <tr>
+                      <td colSpan={7} className="py-12 text-center space-y-2">
+                        <CheckCircle2 className="w-8 h-8 text-emerald-500 mx-auto" />
+                        <p className="text-sm font-bold">No flagged risk alerts match your current filter</p>
+                        <p className={`text-xs ${isDarkMode ? 'text-[#8A796B]' : 'text-[#8C7575]'}`}>
+                          All student companion conversations are within calm parameters.
+                        </p>
+                      </td>
+                    </tr>
+                  ) : (
+                    filteredRiskLogs.map((logItem) => {
+                      const isHigh = logItem.riskLevel === 'High';
+                      const isNew = logItem.status === 'New';
+                      const isReviewed = logItem.status === 'Reviewed';
+                      const isEscalated = logItem.status === 'Escalated';
+                      const isDismissed = logItem.status === 'Dismissed';
+                      const isExpanded = expandedLogId === logItem.id;
+
+                      const companionAvatar = logItem.companionUsed === 'Cali'
+                        ? '🌿'
+                        : logItem.companionUsed === 'Cedi'
+                        ? '⚡'
+                        : '💜';
+
+                      return (
+                        <React.Fragment key={logItem.id}>
+                          <tr
+                            className={`transition-colors group ${
+                              isNew
+                                ? isDarkMode
+                                  ? 'bg-[#261B18]/60 hover:bg-[#2C1E1B]'
+                                  : 'bg-[#FFF9F9]/80 hover:bg-[#FFF2F2]'
+                                : isDarkMode
+                                ? 'hover:bg-[#241E1A]'
+                                : 'hover:bg-[#FCF9F5]'
+                            }`}
+                          >
+                            {/* 1. Timestamp */}
+                            <td className="py-3.5 px-4 whitespace-nowrap">
+                              <div className="flex flex-col">
+                                <span className="font-bold">{logItem.displayTime}</span>
+                                <span className={`text-[10px] ${isDarkMode ? 'text-[#8A796B]' : 'text-[#8C7575]'}`}>
+                                  {new Date(logItem.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                </span>
+                              </div>
+                            </td>
+
+                            {/* 2. Student ID (Anonymized) */}
+                            <td className="py-3.5 px-3 whitespace-nowrap">
+                              <div className="flex items-center space-x-1.5">
+                                <span className={`px-2.5 py-1 rounded-lg font-mono font-black text-xs border ${
+                                  isDarkMode
+                                    ? 'bg-[#291F18] border-[#443324] text-[#E8CDAC]'
+                                    : 'bg-[#FFF4E8] border-[#F2DAC4] text-[#8F5B34]'
+                                }`}>
+                                  {logItem.anonymizedStudentId}
+                                </span>
+                              </div>
+                              <span className={`text-[10px] block mt-0.5 ${isDarkMode ? 'text-[#8A796B]' : 'text-[#8C7575]'}`}>
+                                {logItem.gradeSection}
+                              </span>
+                            </td>
+
+                            {/* 3. Companion Used */}
+                            <td className="py-3.5 px-3 whitespace-nowrap">
+                              <span className={`inline-flex items-center space-x-1 px-2.5 py-1 rounded-full text-xs font-bold border ${
+                                logItem.companionUsed === 'Cali'
+                                  ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/25'
+                                  : logItem.companionUsed === 'Cedi'
+                                  ? 'bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500/25'
+                                  : 'bg-purple-500/15 text-purple-700 dark:text-purple-300 border-purple-500/25'
+                              }`}>
+                                <span>{companionAvatar}</span>
+                                <span>{logItem.companionUsed}</span>
+                              </span>
+                            </td>
+
+                            {/* 4. Flagged Snippet */}
+                            <td className="py-3.5 px-4">
+                              <div className="space-y-1">
+                                <p className="font-medium text-slate-800 dark:text-slate-200 line-clamp-2 leading-relaxed">
+                                  &ldquo;{logItem.flaggedSnippet}&rdquo;
+                                </p>
+                                {logItem.triggerPhrase && (
+                                  <span className={`inline-block text-[10px] font-bold px-2 py-0.5 rounded ${
+                                    isHigh
+                                      ? 'bg-rose-500/15 text-rose-600 dark:text-rose-400'
+                                      : 'bg-amber-500/15 text-amber-700 dark:text-amber-400'
+                                  }`}>
+                                    Trigger: {logItem.triggerPhrase}
+                                  </span>
+                                )}
+                              </div>
+                            </td>
+
+                            {/* 5. Risk Level */}
+                            <td className="py-3.5 px-3 whitespace-nowrap">
+                              {isHigh ? (
+                                <span className="inline-flex items-center space-x-1.5 px-2.5 py-1 rounded-lg text-xs font-black uppercase tracking-wider bg-rose-500/15 text-rose-600 dark:text-rose-400 border border-rose-500/30">
+                                  <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse" />
+                                  <span>High</span>
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center space-x-1.5 px-2.5 py-1 rounded-lg text-xs font-black uppercase tracking-wider bg-amber-500/15 text-amber-700 dark:text-amber-400 border border-amber-500/30">
+                                  <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
+                                  <span>Moderate</span>
+                                </span>
+                              )}
+                            </td>
+
+                            {/* 6. Status */}
+                            <td className="py-3.5 px-3 whitespace-nowrap">
+                              {isNew && (
+                                <span className="inline-block px-2.5 py-1 rounded-md text-[11px] font-black uppercase tracking-wider bg-rose-500/15 text-rose-600 dark:text-rose-400 border border-rose-500/25">
+                                  ● New Alert
+                                </span>
+                              )}
+                              {isReviewed && (
+                                <span className="inline-block px-2.5 py-1 rounded-md text-[11px] font-bold uppercase tracking-wider bg-blue-500/15 text-blue-600 dark:text-blue-400 border border-blue-500/25">
+                                  ✓ Reviewed
+                                </span>
+                              )}
+                              {isEscalated && (
+                                <span className="inline-block px-2.5 py-1 rounded-md text-[11px] font-black uppercase tracking-wider bg-purple-500/15 text-purple-600 dark:text-purple-300 border border-purple-500/25">
+                                  ▲ Escalated
+                                </span>
+                              )}
+                              {isDismissed && (
+                                <span className="inline-block px-2.5 py-1 rounded-md text-[11px] font-bold uppercase tracking-wider bg-slate-500/15 text-slate-600 dark:text-slate-400 border border-slate-500/25">
+                                  Dismissed
+                                </span>
+                              )}
+                            </td>
+
+                            {/* 7. Counselor Actions */}
+                            <td className="py-3.5 px-4 text-right whitespace-nowrap">
+                              <div className="flex items-center justify-end space-x-1.5">
+                                {/* Action 1: Mark Reviewed */}
+                                {isNew && (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleMarkAsReviewed(logItem.id)}
+                                    className={`px-2.5 py-1.5 rounded-xl text-xs font-bold border transition-all cursor-pointer flex items-center space-x-1 shadow-2xs ${
+                                      isDarkMode
+                                        ? 'bg-[#2B3527] hover:bg-[#374532] text-[#A7F3D0] border-[#435C41]'
+                                        : 'bg-[#ECFDF5] hover:bg-[#D1FAE5] text-[#065F46] border-[#A7F3D0]'
+                                    }`}
+                                    title="Mark as reviewed by counselor"
+                                  >
+                                    <Check className="w-3.5 h-3.5" />
+                                    <span>Mark Reviewed</span>
+                                  </button>
+                                )}
+
+                                {/* Action 2: Dismiss / False Alarm */}
+                                {!isDismissed && (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleOpenDismissModal(logItem)}
+                                    className={`px-2.5 py-1.5 rounded-xl text-xs font-semibold border transition-all cursor-pointer flex items-center space-x-1 ${
+                                      isDarkMode
+                                        ? 'bg-[#241E1A] hover:bg-[#2F2621] border-[#3D332B] text-[#C0B0A0]'
+                                        : 'bg-white hover:bg-[#FAF4EB] border-[#D8C6B2] text-[#5E4747]'
+                                    }`}
+                                    title="Dismiss as false alarm or non-clinical expression"
+                                  >
+                                    <X className="w-3.5 h-3.5 text-slate-400" />
+                                    <span>Dismiss / False Alarm</span>
+                                  </button>
+                                )}
+
+                                {/* Action 3: Manual Escalation Log */}
+                                <button
+                                  type="button"
+                                  onClick={() => handleOpenEscalationModal(logItem)}
+                                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center space-x-1 shadow-2xs ${
+                                    isEscalated
+                                      ? isDarkMode
+                                        ? 'bg-[#3A244A] text-[#EADCF7] border border-[#5E3D80]'
+                                        : 'bg-[#EDE5F8] text-[#5C348A] border border-[#D8C7F0]'
+                                      : isDarkMode
+                                      ? 'bg-[#D4A373] hover:bg-[#C28F5E] text-[#1E1712]'
+                                      : 'bg-[#8F5B34] hover:bg-[#784823] text-white'
+                                  }`}
+                                  title="Log official human-in-the-loop counselor escalation"
+                                >
+                                  <FileText className="w-3.5 h-3.5" />
+                                  <span>{isEscalated ? 'View Escalation' : 'Manual Escalation Log'}</span>
+                                </button>
+
+                                {/* Quick Details Toggle */}
+                                <button
+                                  type="button"
+                                  onClick={() => setExpandedLogId(isExpanded ? null : logItem.id)}
+                                  className={`p-1.5 rounded-lg border transition-colors cursor-pointer ${
+                                    isDarkMode ? 'hover:bg-[#2C241F] text-[#8A796B]' : 'hover:bg-[#EFE5D8] text-[#8C7575]'
+                                  }`}
+                                  title="Expand full log details"
+                                >
+                                  {isExpanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+
+                          {/* EXPANDED AUDIT ROW */}
+                          {isExpanded && (
+                            <tr className={isDarkMode ? 'bg-[#181310]/90' : 'bg-[#FAF6F0]'}>
+                              <td colSpan={7} className="p-4 sm:p-5 border-t border-b border-amber-500/20">
+                                <div className="space-y-3">
+                                  <div className="flex items-center justify-between flex-wrap gap-2 text-xs">
+                                    <div className="flex items-center space-x-2">
+                                      <ShieldCheck className="w-4 h-4 text-emerald-500" />
+                                      <span className="font-bold">
+                                        Audit Record: {logItem.id} • Anonymized Student ID: {logItem.anonymizedStudentId}
+                                      </span>
+                                    </div>
+                                    {logItem.reviewedBy && (
+                                      <span className={`text-[11px] ${isDarkMode ? 'text-[#A09080]' : 'text-[#7D6B5E]'}`}>
+                                        Audited by: <strong>{logItem.reviewedBy}</strong> ({logItem.reviewedAt})
+                                      </span>
+                                    )}
+                                  </div>
+
+                                  {/* Escalation Notes if any */}
+                                  {logItem.escalationRecord && (
+                                    <div
+                                      className={`p-3.5 rounded-2xl border text-xs space-y-2 ${
+                                        isDarkMode ? 'bg-[#241724] border-[#4E2B52]' : 'bg-[#FAF4FF] border-[#E9D8FD]'
+                                      }`}
+                                    >
+                                      <div className="flex items-center justify-between font-bold text-purple-700 dark:text-purple-300">
+                                        <span>ESCALATION ACTION: {logItem.escalationRecord.actionTitle}</span>
+                                        <span>{logItem.escalationRecord.escalatedAt}</span>
+                                      </div>
+                                      <p className="leading-relaxed">
+                                        <strong>Case Notes:</strong> {logItem.escalationRecord.counselorNotes}
+                                      </p>
+                                      {logItem.escalationRecord.parentContactedManually && (
+                                        <div className="p-2 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-700 dark:text-emerald-300">
+                                          <strong>Manual Parent Notification Conducted:</strong> {logItem.escalationRecord.parentContactDetails || 'Counselor personally spoke with parent/guardian.'}
+                                        </div>
+                                      )}
+                                    </div>
+                                  )}
+
+                                  {/* Dismissal Reason if any */}
+                                  {logItem.dismissReason && (
+                                    <div
+                                      className={`p-3 rounded-2xl border text-xs space-y-1 ${
+                                        isDarkMode ? 'bg-[#201C1A] border-[#382E27]' : 'bg-[#F4EFEA] border-[#E8DFD5]'
+                                      }`}
+                                    >
+                                      <span className="font-bold text-amber-600 dark:text-amber-400 block">
+                                        DISMISSAL / FALSE ALARM JUSTIFICATION:
+                                      </span>
+                                      <p className="opacity-90">{logItem.dismissReason}</p>
+                                    </div>
+                                  )}
+                                </div>
+                              </td>
+                            </tr>
+                          )}
+                        </React.Fragment>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Table Footer Summary */}
+            <div
+              className={`p-3.5 px-5 border-t flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs ${
+                isDarkMode ? 'bg-[#181310] border-[#332A24] text-[#8A796B]' : 'bg-[#FAF5EE] border-[#EAE0D2] text-[#8C7575]'
+              }`}
+            >
+              <span>Showing {filteredRiskLogs.length} of {flaggedRiskLogs.length} flagged keyword trigger alerts</span>
+              <span className="font-medium">
+                Active Counselor: <strong>{activeCounselor.name}</strong> • Licensed Protocol R.A. 9258
+              </span>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* VIEW 2: DIRECT REFERRAL QUEUE (CARDS) */}
+      {activeViewTab === 'queue' && (
         <div className="space-y-4">
           
           {/* Sub-tab counter bar: Active Alerts (X) and Resolved (X) */}
@@ -491,7 +990,7 @@ export const CounselorDashboard: React.FC<CounselorDashboardProps> = ({ isDarkMo
                     : 'text-[#7D6666] hover:text-[#3D2C2C]'
                 }`}
               >
-                Active Alerts ({activeAlerts.length})
+                Active Referrals ({activeAlerts.length})
               </button>
 
               <button
@@ -511,24 +1010,6 @@ export const CounselorDashboard: React.FC<CounselorDashboardProps> = ({ isDarkMo
                 Resolved ({resolvedAlerts.length})
               </button>
             </div>
-
-            {/* Quick tally breakdown */}
-            {alertsSubTab === 'active' && (
-              <div className="flex items-center space-x-3 text-xs">
-                <span className="flex items-center space-x-1">
-                  <span className="w-2 h-2 rounded-full bg-rose-500 inline-block" />
-                  <span className={isDarkMode ? 'text-[#C9BAAB]' : 'text-[#5E4747]'}>
-                    High Priority: <strong>{highPriorityCount}</strong>
-                  </span>
-                </span>
-                <span className="flex items-center space-x-1">
-                  <span className="w-2 h-2 rounded-full bg-amber-500 inline-block" />
-                  <span className={isDarkMode ? 'text-[#C9BAAB]' : 'text-[#5E4747]'}>
-                    Student Requested: <strong>{studentRequestedCount}</strong>
-                  </span>
-                </span>
-              </div>
-            )}
           </div>
 
           {/* ACTIVE ALERTS LIST */}
@@ -543,7 +1024,7 @@ export const CounselorDashboard: React.FC<CounselorDashboardProps> = ({ isDarkMo
                   }`}
                 >
                   <CheckCircle2 className="w-8 h-8 text-emerald-500 mx-auto" />
-                  <p className="text-sm font-semibold">All active alerts are resolved</p>
+                  <p className="text-sm font-semibold">All active referrals are resolved</p>
                   <p className={`text-xs ${isDarkMode ? 'text-[#968677]' : 'text-[#8C7575]'}`}>
                     Great job! You can review past interventions in the Resolved tab.
                   </p>
@@ -571,11 +1052,8 @@ export const CounselorDashboard: React.FC<CounselorDashboardProps> = ({ isDarkMo
                       }`}
                     >
                       <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
-                        
-                        {/* Left: Type badge + student info + flag reason */}
                         <div className="space-y-2 flex-1">
                           <div className="flex items-center space-x-2.5 flex-wrap gap-y-1">
-                            {/* Distinct visual badge */}
                             {isHighPriority ? (
                               <span className="px-2.5 py-0.5 rounded-md text-[11px] font-bold uppercase tracking-wider bg-rose-500/15 text-rose-600 dark:text-rose-400 border border-rose-500/30 flex items-center space-x-1">
                                 <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse" />
@@ -621,7 +1099,6 @@ export const CounselorDashboard: React.FC<CounselorDashboardProps> = ({ isDarkMo
                             )}
                           </div>
 
-                          {/* Short flag reason description */}
                           <p
                             className={`text-xs sm:text-[13px] font-normal leading-relaxed ${
                               isDarkMode ? 'text-[#C9BAAB]' : 'text-[#4A3737]'
@@ -631,7 +1108,6 @@ export const CounselorDashboard: React.FC<CounselorDashboardProps> = ({ isDarkMo
                           </p>
                         </div>
 
-                        {/* Right: Action buttons */}
                         <div className="flex items-center space-x-2 self-start md:self-center flex-shrink-0 pt-2 md:pt-0">
                           <button
                             type="button"
@@ -663,7 +1139,6 @@ export const CounselorDashboard: React.FC<CounselorDashboardProps> = ({ isDarkMo
                             <span>Resolve</span>
                           </button>
                         </div>
-
                       </div>
                     </motion.div>
                   );
@@ -685,9 +1160,6 @@ export const CounselorDashboard: React.FC<CounselorDashboardProps> = ({ isDarkMo
                 >
                   <Info className="w-8 h-8 opacity-40 mx-auto" />
                   <p className="text-sm font-semibold">No resolved alerts yet</p>
-                  <p className={`text-xs ${isDarkMode ? 'text-[#968677]' : 'text-[#8C7575]'}`}>
-                    Resolved alerts will appear here as you close cases.
-                  </p>
                 </div>
               ) : (
                 resolvedAlerts.map(alert => (
@@ -747,44 +1219,39 @@ export const CounselorDashboard: React.FC<CounselorDashboardProps> = ({ isDarkMo
         </div>
       )}
 
-      {/* VIEW 2: SCHOOL-WIDE MOOD TRENDS */}
+      {/* VIEW 3: SCHOOL-WIDE MOOD TRENDS */}
       {activeViewTab === 'trends' && (
-        <div className="space-y-6">
-          
-          {/* Header info banner: Strictly Anonymized */}
-          <div
-            className={`p-4 sm:p-5 rounded-2xl border flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${
-              isDarkMode
-                ? 'bg-[#221C18] border-[#382E27] text-[#EDE5DB]'
-                : 'bg-white border-[#E8DDD0] text-[#3D2C2C]'
-            }`}
-          >
+        <div className="space-y-5">
+          {/* Header Row with range toggles */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div>
-              <h3 className="text-sm sm:text-base font-bold flex items-center space-x-2">
-                <BarChart3 className="w-4 h-4 text-[#D4A373]" />
-                <span>School-Wide Mood Check-In Distribution</span>
+              <h3 className={`text-base font-bold ${isDarkMode ? 'text-[#EDE5DB]' : 'text-[#3D2C2C]'}`}>
+                School-Wide Mental Health Aggregates
               </h3>
-              <p className={`text-xs mt-0.5 ${isDarkMode ? 'text-[#A8988A]' : 'text-[#7D6666]'}`}>
-                Strictly anonymized, population-level telemetry across Cabiao SHS Grade 11 &amp; Grade 12 cohorts.
+              <p className={`text-xs ${isDarkMode ? 'text-[#A09080]' : 'text-[#7D6B5E]'}`}>
+                Anonymized check-in distribution across all SHS Tracks &amp; Career Clusters.
               </p>
             </div>
 
-            {/* Time period range selector */}
-            <div className="flex items-center space-x-1.5">
+            <div
+              className={`inline-flex p-1 rounded-xl border self-start sm:self-center ${
+                isDarkMode ? 'bg-[#181310] border-[#382E27]' : 'bg-[#EAE0D2] border-[#DFD3C4]'
+              }`}
+            >
               <button
                 type="button"
                 onClick={() => setSelectedChartRange('weekly')}
                 className={`px-3 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
                   selectedChartRange === 'weekly'
                     ? isDarkMode
-                      ? 'bg-[#3D3229] text-[#EDE5DB] border border-[#59483C]'
-                      : 'bg-[#EDE2D4] text-[#3D2C2C] border border-[#D8C6B2]'
+                      ? 'bg-[#D4A373] text-[#1E1712]'
+                      : 'bg-[#8F5B34] text-white'
                     : isDarkMode
-                    ? 'text-[#8A796B] hover:text-[#EDE5DB]'
-                    : 'text-[#8C7575] hover:text-[#3D2C2C]'
+                    ? 'text-[#A09080] hover:text-[#EDE5DB]'
+                    : 'text-[#7D6B5E] hover:text-[#3D2C2C]'
                 }`}
               >
-                4-Week Overview
+                4-Week Aggregates
               </button>
               <button
                 type="button"
@@ -792,168 +1259,159 @@ export const CounselorDashboard: React.FC<CounselorDashboardProps> = ({ isDarkMo
                 className={`px-3 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
                   selectedChartRange === 'daily'
                     ? isDarkMode
-                      ? 'bg-[#3D3229] text-[#EDE5DB] border border-[#59483C]'
-                      : 'bg-[#EDE2D4] text-[#3D2C2C] border border-[#D8C6B2]'
+                      ? 'bg-[#D4A373] text-[#1E1712]'
+                      : 'bg-[#8F5B34] text-white'
                     : isDarkMode
-                    ? 'text-[#8A796B] hover:text-[#EDE5DB]'
-                    : 'text-[#8C7575] hover:text-[#3D2C2C]'
+                    ? 'text-[#A09080] hover:text-[#EDE5DB]'
+                    : 'text-[#7D6B5E] hover:text-[#3D2C2C]'
                 }`}
               >
-                Past 7 Days
+                Current Week (Daily)
               </button>
             </div>
           </div>
 
-          {/* Aggregate Top Stat Cards */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            <div
-              className={`p-4 rounded-xl border ${
-                isDarkMode ? 'bg-[#221C18] border-[#382E27]' : 'bg-white border-[#E8DDD0]'
-              }`}
-            >
-              <span className={`text-[11px] font-semibold uppercase tracking-wider ${isDarkMode ? 'text-[#8A796B]' : 'text-[#8C7575]'}`}>
-                Total Check-Ins (Aug)
-              </span>
-              <p className={`text-xl sm:text-2xl font-black mt-1 ${isDarkMode ? 'text-[#EDE5DB]' : 'text-[#2D1F1F]'}`}>
-                2,314
-              </p>
-              <span className="text-[10px] text-emerald-500 font-semibold">+18% vs July baseline</span>
-            </div>
-
-            <div
-              className={`p-4 rounded-xl border ${
-                isDarkMode ? 'bg-[#221C18] border-[#382E27]' : 'bg-white border-[#E8DDD0]'
-              }`}
-            >
-              <span className={`text-[11px] font-semibold uppercase tracking-wider ${isDarkMode ? 'text-[#8A796B]' : 'text-[#8C7575]'}`}>
-                Warm &amp; Joyful Ratio
-              </span>
-              <p className={`text-xl sm:text-2xl font-black mt-1 text-emerald-500`}>
-                64.2%
-              </p>
-              <span className={`text-[10px] ${isDarkMode ? 'text-[#8A796B]' : 'text-[#8C7575]'}`}>Positive or flourishing</span>
-            </div>
-
-            <div
-              className={`p-4 rounded-xl border ${
-                isDarkMode ? 'bg-[#221C18] border-[#382E27]' : 'bg-white border-[#E8DDD0]'
-              }`}
-            >
-              <span className={`text-[11px] font-semibold uppercase tracking-wider ${isDarkMode ? 'text-[#8A796B]' : 'text-[#8C7575]'}`}>
-                Heavy / Crisis Load
-              </span>
-              <p className={`text-xl sm:text-2xl font-black mt-1 text-rose-500`}>
-                8.6%
-              </p>
-              <span className={`text-[10px] ${isDarkMode ? 'text-[#8A796B]' : 'text-[#8C7575]'}`}>Prioritized for triage</span>
-            </div>
-
-            <div
-              className={`p-4 rounded-xl border ${
-                isDarkMode ? 'bg-[#221C18] border-[#382E27]' : 'bg-white border-[#E8DDD0]'
-              }`}
-            >
-              <span className={`text-[11px] font-semibold uppercase tracking-wider ${isDarkMode ? 'text-[#8A796B]' : 'text-[#8C7575]'}`}>
-                Peak Stress Window
-              </span>
-              <p className={`text-base sm:text-lg font-bold mt-1.5 ${isDarkMode ? 'text-[#E0A868]' : 'text-[#A8642A]'}`}>
-                Week 3 Exams
-              </p>
-              <span className={`text-[10px] ${isDarkMode ? 'text-[#8A796B]' : 'text-[#8C7575]'}`}>Midterm exam period</span>
-            </div>
-          </div>
-
-          {/* Interactive Stacked Bar Chart for Mood Categories */}
+          {/* Chart Card */}
           <div
-            className={`p-5 sm:p-6 rounded-2xl border space-y-4 ${
+            className={`p-5 rounded-3xl border shadow-sm ${
               isDarkMode
-                ? 'bg-[#221C18] border-[#382E27] text-[#EDE5DB]'
-                : 'bg-white border-[#E8DDD0] text-[#3D2C2C]'
+                ? 'bg-[#221C18] border-[#382E27]'
+                : 'bg-white border-[#E8DDD0]'
             }`}
           >
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-              <h4 className="text-xs sm:text-sm font-bold uppercase tracking-wider">
-                {selectedChartRange === 'weekly' ? 'Weekly Volume by Mood Type' : 'Daily Check-In Breakdown (This Week)'}
-              </h4>
-              
-              {/* Custom Legend */}
-              <div className="flex items-center space-x-3 text-xs flex-wrap gap-y-1">
-                <span className="flex items-center space-x-1">
-                  <span className="w-2.5 h-2.5 rounded-xs bg-[#E57373]" />
-                  <span>Heavy</span>
-                </span>
-                <span className="flex items-center space-x-1">
-                  <span className="w-2.5 h-2.5 rounded-xs bg-[#FFB74D]" />
-                  <span>Restless</span>
-                </span>
-                <span className="flex items-center space-x-1">
-                  <span className="w-2.5 h-2.5 rounded-xs bg-[#90CAF9]" />
-                  <span>Quiet</span>
-                </span>
-                <span className="flex items-center space-x-1">
-                  <span className="w-2.5 h-2.5 rounded-xs bg-[#A5D6A7]" />
-                  <span>Warm</span>
-                </span>
-                <span className="flex items-center space-x-1">
-                  <span className="w-2.5 h-2.5 rounded-xs bg-[#81C784]" />
-                  <span>Joyful</span>
-                </span>
-              </div>
-            </div>
-
-            <div className="h-72 sm:h-80 w-full pt-2">
+            <div className="h-72 w-full">
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart
+                <AreaChart
                   data={selectedChartRange === 'weekly' ? SCHOOL_MOOD_TRENDS_DATA : DAILY_MOOD_TRENDS_DATA}
                   margin={{ top: 10, right: 10, left: -20, bottom: 0 }}
                 >
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={isDarkMode ? '#332922' : '#EFE4D6'} />
-                  <XAxis
-                    dataKey="label"
-                    tick={{ fill: isDarkMode ? '#9E8D7F' : '#7D6666', fontSize: 11 }}
-                    axisLine={{ stroke: isDarkMode ? '#3D3229' : '#E8DDD0' }}
-                    tickLine={false}
-                  />
-                  <YAxis
-                    tick={{ fill: isDarkMode ? '#9E8D7F' : '#7D6666', fontSize: 11 }}
-                    axisLine={{ stroke: isDarkMode ? '#3D3229' : '#E8DDD0' }}
-                    tickLine={false}
-                  />
+                  <defs>
+                    <linearGradient id="colorHeavy" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#EF4444" stopOpacity={0.8} />
+                      <stop offset="95%" stopColor="#EF4444" stopOpacity={0.0} />
+                    </linearGradient>
+                    <linearGradient id="colorRestless" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#F59E0B" stopOpacity={0.8} />
+                      <stop offset="95%" stopColor="#F59E0B" stopOpacity={0.0} />
+                    </linearGradient>
+                    <linearGradient id="colorWarm" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#10B981" stopOpacity={0.8} />
+                      <stop offset="95%" stopColor="#10B981" stopOpacity={0.0} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" opacity={isDarkMode ? 0.15 : 0.4} />
+                  <XAxis dataKey="label" stroke={isDarkMode ? '#8A796B' : '#9E8D8D'} fontSize={11} />
+                  <YAxis stroke={isDarkMode ? '#8A796B' : '#9E8D8D'} fontSize={11} />
                   <Tooltip
                     contentStyle={{
-                      backgroundColor: isDarkMode ? '#1E1712' : '#FFFFFF',
-                      borderColor: isDarkMode ? '#3D3229' : '#E8DDD0',
-                      borderRadius: '12px',
-                      color: isDarkMode ? '#EDE5DB' : '#2D1F1F',
+                      backgroundColor: isDarkMode ? '#1E1714' : '#FFFFFF',
+                      borderColor: isDarkMode ? '#3D322B' : '#E8DDD0',
+                      borderRadius: '16px',
                       fontSize: '12px',
-                      boxShadow: '0 4px 16px rgba(0,0,0,0.1)'
+                      boxShadow: '0 4px 20px rgba(0,0,0,0.15)'
                     }}
                   />
-                  <Bar dataKey="Heavy" stackId="a" fill="#E57373" />
-                  <Bar dataKey="Restless" stackId="a" fill="#FFB74D" />
-                  <Bar dataKey="Quiet" stackId="a" fill="#90CAF9" />
-                  <Bar dataKey="Warm" stackId="a" fill="#A5D6A7" />
-                  <Bar dataKey="Joyful" stackId="a" fill="#81C784" radius={[6, 6, 0, 0]} />
-                </BarChart>
+                  <Legend wrapperStyle={{ fontSize: '11px', paddingTop: '10px' }} />
+                  <Area type="monotone" dataKey="Heavy" stroke="#EF4444" fillOpacity={1} fill="url(#colorHeavy)" />
+                  <Area type="monotone" dataKey="Restless" stroke="#F59E0B" fillOpacity={1} fill="url(#colorRestless)" />
+                  <Area type="monotone" dataKey="Warm" stroke="#10B981" fillOpacity={1} fill="url(#colorWarm)" />
+                </AreaChart>
               </ResponsiveContainer>
             </div>
-
-            <p className={`text-[11px] text-center pt-2 ${isDarkMode ? 'text-[#8A796B]' : 'text-[#8C7575]'}`}>
-              * Data is strictly aggregated and computed automatically from student daily check-in pulses to guide school guidance proactive interventions.
-            </p>
           </div>
-
         </div>
       )}
 
-      {/* Counselor Profile Details Modal */}
+      {/* Counselor Profile Modal */}
       <CounselorProfileModal
         isOpen={isProfileModalOpen}
         onClose={() => setIsProfileModalOpen(false)}
         counselor={activeCounselor}
         isDarkMode={isDarkMode}
-        onSignOut={handleSignOut}
       />
+
+      {/* Manual Counselor Escalation Modal */}
+      <ManualEscalationModal
+        isOpen={isEscalationModalOpen}
+        onClose={() => setIsEscalationModalOpen(false)}
+        item={escalationTargetItem}
+        currentCounselor={activeCounselor}
+        onConfirmEscalation={handleConfirmEscalation}
+        isDarkMode={isDarkMode}
+      />
+
+      {/* Dismiss / False Alarm Justification Modal */}
+      <AnimatePresence>
+        {isDismissModalOpen && dismissTargetItem && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 backdrop-blur-sm bg-black/60">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className={`w-full max-w-lg rounded-3xl border shadow-2xl p-6 space-y-4 ${
+                isDarkMode ? 'bg-[#1E1714] border-[#3D322B] text-[#EDE5DB]' : 'bg-white border-[#E8DDD0] text-[#3D2C2C]'
+              }`}
+            >
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-2 text-amber-600 dark:text-amber-400 font-bold text-sm">
+                  <AlertTriangle className="w-4 h-4" />
+                  <span>Dismiss Flagged Alert (False Alarm Verification)</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setIsDismissModalOpen(false)}
+                  className="p-1 rounded-lg opacity-60 hover:opacity-100"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              <div className="text-xs space-y-1.5 p-3 rounded-xl bg-amber-500/10 border border-amber-500/20">
+                <p>
+                  Student: <strong>{dismissTargetItem.anonymizedStudentId}</strong> ({dismissTargetItem.gradeSection})
+                </p>
+                <p className="italic font-serif opacity-90">
+                  &ldquo;{dismissTargetItem.flaggedSnippet}&rdquo;
+                </p>
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="block text-xs font-bold uppercase tracking-wider">
+                  Counselor False Alarm Justification Note:
+                </label>
+                <textarea
+                  rows={3}
+                  value={dismissReasonInput}
+                  onChange={(e) => setDismissReasonInput(e.target.value)}
+                  placeholder="Explain why this keyword trigger is a false alarm (e.g. conversational hyperbole, academic sarcasm, or resolved in follow-up)..."
+                  className={`w-full p-2.5 rounded-xl border text-xs focus:outline-none ${
+                    isDarkMode
+                      ? 'bg-[#14100E] border-[#382E27] text-[#EDE5DB]'
+                      : 'bg-[#FAF7F2] border-[#E8DFD3] text-[#3D2C2C]'
+                  }`}
+                />
+              </div>
+
+              <div className="flex items-center justify-end space-x-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setIsDismissModalOpen(false)}
+                  className="px-4 py-2 rounded-xl text-xs font-semibold border cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleConfirmDismiss}
+                  className="px-4 py-2 rounded-xl text-xs font-bold bg-amber-600 hover:bg-amber-700 text-white cursor-pointer shadow-sm"
+                >
+                  Confirm Dismissal
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
 
     </div>
   );

@@ -1,0 +1,254 @@
+import { CompanionId } from '../types';
+
+export type RiskLevel = 'Moderate' | 'High';
+export type RiskStatus = 'New' | 'Reviewed' | 'Escalated' | 'Dismissed';
+
+export interface ManualEscalationRecord {
+  counselorName: string;
+  counselorLicense?: string;
+  actionPlan: 'guidance_session' | 'in_person_check' | 'parent_outreach_manual' | 'cluster_referral';
+  actionTitle: string;
+  parentContactedManually: boolean;
+  parentContactDetails?: string;
+  counselorNotes: string;
+  escalatedAt: string;
+}
+
+export interface FlaggedRiskItem {
+  id: string;
+  timestamp: string; // ISO string
+  displayTime: string; // Formatted relative / absolute time
+  anonymizedStudentId: string; // e.g. "STU-8921"
+  studentRealName?: string; // Kept private for counselor reference
+  gradeSection: string;
+  companionUsed: 'Cali' | 'Casti' | 'Cedi';
+  flaggedSnippet: string;
+  triggerPhrase?: string;
+  riskLevel: RiskLevel;
+  status: RiskStatus;
+  reviewedBy?: string;
+  reviewedAt?: string;
+  dismissReason?: string;
+  escalationRecord?: ManualEscalationRecord;
+}
+
+export const INITIAL_FLAGGED_RISK_LOG: FlaggedRiskItem[] = [
+  {
+    id: 'frl_001',
+    timestamp: '2026-10-21T15:20:00Z',
+    displayTime: '15 mins ago',
+    anonymizedStudentId: 'STU-8921',
+    studentRealName: 'Angelo D. Bautista',
+    gradeSection: 'Grade 12 - STEM A',
+    companionUsed: 'Casti',
+    flaggedSnippet: 'I feel so hopeless and burned out. Nothing I do ever seems enough and I just want to disappear from everyone...',
+    triggerPhrase: 'feel so hopeless and burned out',
+    riskLevel: 'High',
+    status: 'New'
+  },
+  {
+    id: 'frl_002',
+    timestamp: '2026-10-21T14:45:00Z',
+    displayTime: '50 mins ago',
+    anonymizedStudentId: 'STU-4412',
+    studentRealName: 'Samantha Nicole Cruz',
+    gradeSection: 'Grade 11 - HUMSS B',
+    companionUsed: 'Casti',
+    flaggedSnippet: 'I cant handle this pressure anymore. My hands are shaking thinking about defense tomorrow and I feel like giving up completely.',
+    triggerPhrase: 'cant handle this pressure anymore',
+    riskLevel: 'Moderate',
+    status: 'New'
+  },
+  {
+    id: 'frl_003',
+    timestamp: '2026-10-21T13:10:00Z',
+    displayTime: '2.5 hrs ago',
+    anonymizedStudentId: 'STU-7204',
+    studentRealName: 'Princess Mae Del Rosario',
+    gradeSection: 'Grade 11 - TVL ICT',
+    companionUsed: 'Cali',
+    flaggedSnippet: 'Failing my coding summatives back to back. I feel like a burden to my capstone group and hate letting them down.',
+    triggerPhrase: 'feel like a burden',
+    riskLevel: 'Moderate',
+    status: 'Reviewed',
+    reviewedBy: 'Mrs. Elena M. Reyes, RGC',
+    reviewedAt: 'Today at 1:45 PM'
+  },
+  {
+    id: 'frl_004',
+    timestamp: '2026-10-21T10:15:00Z',
+    displayTime: '5.5 hrs ago',
+    anonymizedStudentId: 'STU-9183',
+    studentRealName: 'Christian Joshua Ramos',
+    gradeSection: 'Grade 12 - ABM A',
+    companionUsed: 'Cedi',
+    flaggedSnippet: 'Persistent feelings of worthlessness and panic attacks whenever family asks about college entrance exams.',
+    triggerPhrase: 'worthlessness and panic attacks',
+    riskLevel: 'High',
+    status: 'Escalated',
+    reviewedBy: 'Mr. Arnel S. Cruz, MAGC, RGC',
+    reviewedAt: 'Today at 11:00 AM',
+    escalationRecord: {
+      counselorName: 'Mr. Arnel S. Cruz, MAGC, RGC',
+      actionPlan: 'guidance_session',
+      actionTitle: '1-on-1 Guidance Intake Scheduled',
+      parentContactedManually: true,
+      parentContactDetails: 'Counselor Cruz personally called mother via school landline. Mother will accompany student for guidance consultation on Friday.',
+      counselorNotes: 'Student agreed to consultation. Provided calm grounding techniques and coordinated with class adviser for temporary extension.',
+      escalatedAt: 'Today at 11:20 AM'
+    }
+  },
+  {
+    id: 'frl_005',
+    timestamp: '2026-10-20T16:30:00Z',
+    displayTime: 'Yesterday at 4:30 PM',
+    anonymizedStudentId: 'STU-5529',
+    studentRealName: 'Hannah Beatrice Tolentino',
+    gradeSection: 'Grade 11 - STEM B',
+    companionUsed: 'Cali',
+    flaggedSnippet: 'I haven\'t slept properly in 3 days trying to finish our research paper, I\'m dying of exhaustion here haha.',
+    triggerPhrase: 'dying of exhaustion',
+    riskLevel: 'Moderate',
+    status: 'Dismissed',
+    reviewedBy: 'Ms. Karen Joy Santos, LPT, RGC',
+    reviewedAt: 'Yesterday at 5:00 PM',
+    dismissReason: 'False Alarm / Hyperbolic Speech: Student clarified in subsequent chat messages that this was humorous venting regarding chemistry research. Follow-up study schedule provided.'
+  }
+];
+
+const LOCAL_STORAGE_FLAGGED_RISK_KEY = 'c3-flagged-risk-log-v2';
+
+export function getFlaggedRiskLogs(): FlaggedRiskItem[] {
+  try {
+    const raw = localStorage.getItem(LOCAL_STORAGE_FLAGGED_RISK_KEY);
+    if (!raw) {
+      localStorage.setItem(LOCAL_STORAGE_FLAGGED_RISK_KEY, JSON.stringify(INITIAL_FLAGGED_RISK_LOG));
+      return INITIAL_FLAGGED_RISK_LOG;
+    }
+    const parsed = JSON.parse(raw);
+    if (Array.isArray(parsed) && parsed.length > 0) {
+      return parsed;
+    }
+    return INITIAL_FLAGGED_RISK_LOG;
+  } catch (e) {
+    console.error('Failed to load flagged risk logs from storage:', e);
+    return INITIAL_FLAGGED_RISK_LOG;
+  }
+}
+
+export function saveFlaggedRiskLogs(logs: FlaggedRiskItem[]) {
+  try {
+    localStorage.setItem(LOCAL_STORAGE_FLAGGED_RISK_KEY, JSON.stringify(logs));
+  } catch (e) {
+    console.error('Failed to save flagged risk logs to storage:', e);
+  }
+}
+
+export function addFlaggedRiskAlert(item: Omit<FlaggedRiskItem, 'id' | 'timestamp' | 'displayTime' | 'status'>): FlaggedRiskItem {
+  const current = getFlaggedRiskLogs();
+  const newItem: FlaggedRiskItem = {
+    ...item,
+    id: `frl_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
+    timestamp: new Date().toISOString(),
+    displayTime: 'Just now',
+    status: 'New'
+  };
+  const updated = [newItem, ...current];
+  saveFlaggedRiskLogs(updated);
+
+  // Notify server if online
+  try {
+    fetch('/api/flagged-risks', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(newItem)
+    }).catch(() => {});
+  } catch {}
+
+  return newItem;
+}
+
+export function markRiskLogReviewed(id: string, counselorName: string): FlaggedRiskItem[] {
+  const current = getFlaggedRiskLogs();
+  const now = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  const reviewedAt = `Today at ${now}`;
+  const updated = current.map(item => {
+    if (item.id === id) {
+      return {
+        ...item,
+        status: 'Reviewed' as RiskStatus,
+        reviewedBy: counselorName,
+        reviewedAt
+      };
+    }
+    return item;
+  });
+  saveFlaggedRiskLogs(updated);
+
+  try {
+    fetch('/api/flagged-risks/action', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id, status: 'Reviewed', reviewedBy: counselorName, reviewedAt })
+    }).catch(() => {});
+  } catch {}
+
+  return updated;
+}
+
+export function dismissRiskLog(id: string, reason: string, counselorName: string): FlaggedRiskItem[] {
+  const current = getFlaggedRiskLogs();
+  const now = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  const reviewedAt = `Today at ${now}`;
+  const dismissReason = reason || 'Dismissed as false alarm after counselor evaluation.';
+  const updated = current.map(item => {
+    if (item.id === id) {
+      return {
+        ...item,
+        status: 'Dismissed' as RiskStatus,
+        reviewedBy: counselorName,
+        reviewedAt,
+        dismissReason
+      };
+    }
+    return item;
+  });
+  saveFlaggedRiskLogs(updated);
+
+  try {
+    fetch('/api/flagged-risks/action', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id, status: 'Dismissed', reviewedBy: counselorName, reviewedAt, dismissReason })
+    }).catch(() => {});
+  } catch {}
+
+  return updated;
+}
+
+export function escalateRiskLog(id: string, record: ManualEscalationRecord): FlaggedRiskItem[] {
+  const current = getFlaggedRiskLogs();
+  const updated = current.map(item => {
+    if (item.id === id) {
+      return {
+        ...item,
+        status: 'Escalated' as RiskStatus,
+        reviewedBy: record.counselorName,
+        reviewedAt: record.escalatedAt,
+        escalationRecord: record
+      };
+    }
+    return item;
+  });
+  saveFlaggedRiskLogs(updated);
+
+  try {
+    fetch('/api/flagged-risks/action', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id, status: 'Escalated', reviewedBy: record.counselorName, reviewedAt: record.escalatedAt, escalationRecord: record })
+    }).catch(() => {});
+  } catch {}
+
+  return updated;
+}

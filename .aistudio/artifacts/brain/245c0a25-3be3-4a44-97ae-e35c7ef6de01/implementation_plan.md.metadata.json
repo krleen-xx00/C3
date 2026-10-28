@@ -1,0 +1,6 @@
+{
+  "summary":  "Complete implementation plan addressing:\n1. School Account Authentication (Student login with school Google/email accounts).\n2. Database Architecture (Firestore) for student profiles, persistent chat logs, and real-time Counselor Risk Flagged logs.\n3. n8n AI Chatbot Webhook Pipeline for Cali, Casti, and Cedi with live fallback.\n4. Counselor View Dashboard with PIN/Role security, mandatory privacy & human escalation disclaimer, and triage action buttons.\n5. AI Dependency Engine enforcing the 12+ message / 15-minute de-escalation protocol and grounding modal.",
+  "updatedAt":  "2026-10-27T11:49:31.073276711Z",
+  "requestFeedback":  true,
+  "userFacing":  true
+}

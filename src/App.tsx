@@ -5,16 +5,25 @@ import { StudentDashboard } from './components/student/StudentDashboard';
 import { CompanionRoomView } from './components/student/CompanionRoomView';
 import { AboutUsView } from './components/student/AboutUsView';
 import { CounselorDashboard } from './components/counselor/CounselorDashboard';
-import { ViewSwitcher, AppViewMode } from './components/ViewSwitcher';
+import { AppViewMode } from './components/ViewSwitcher';
+import { TopNavbar } from './components/TopNavbar';
 import { CrisisModal } from './components/CrisisModal';
-import { NightModeToggle } from './components/NightModeToggle';
-import { SchoolHeaderStamp } from './components/SchoolHeaderStamp';
 import { PersistentCrisisButton } from './components/PersistentCrisisButton';
+import { StudentAuthModal } from './components/StudentAuthModal';
 
 export default function App() {
-  const [currentUser] = useState<User>(MOCK_USERS[0]); // Maria Santos (Student)
+  const [currentUser, setCurrentUser] = useState<User>(() => {
+    try {
+      const saved = localStorage.getItem('c3-student-user');
+      if (saved) return JSON.parse(saved);
+    } catch {}
+    return MOCK_USERS[0]; // Maria Santos (Student)
+  });
   const [viewMode, setViewMode] = useState<AppViewMode>('student');
   const [activeCompanionRoom, setActiveCompanionRoom] = useState<CompanionId | null>('casti');
+  
+  // Modal for Student School Account
+  const [isStudentAuthModalOpen, setIsStudentAuthModalOpen] = useState<boolean>(false);
   
   // Personalization state (shared between dashboard and companion room)
   const [preferredName, setPreferredName] = useState<string>(() => {
@@ -174,24 +183,15 @@ export default function App() {
         }`} />
       </div>
 
-      {/* Top Left School Logo Stamp (Subtle branding) - Shown on student and counselor dashboard views */}
-      {(viewMode === 'student' || viewMode === 'counselor') && (
-        <SchoolHeaderStamp isDarkMode={isDarkMode} />
-      )}
-
-      {/* Top Right Header Controls: 4-Way View Switcher (Student / AI Companions / Counselor / About) + Night Toggle */}
-      <div className="fixed right-2 sm:right-6 top-3 sm:top-4 z-40 flex items-center space-x-1.5 sm:space-x-2.5">
-        <ViewSwitcher
-          viewMode={viewMode}
-          onViewChange={handleViewChange}
-          isDarkMode={isDarkMode}
-        />
-        <NightModeToggle
-          isDarkMode={isDarkMode}
-          onToggle={toggleNightMode}
-          className="relative"
-        />
-      </div>
+      {/* Unified Top Navigation Header: School Seal & Title + ViewSwitcher + NightMode Toggle */}
+      <TopNavbar
+        viewMode={viewMode}
+        onViewChange={handleViewChange}
+        isDarkMode={isDarkMode}
+        onToggleNightMode={toggleNightMode}
+        currentUser={currentUser}
+        onOpenStudentAuth={() => setIsStudentAuthModalOpen(true)}
+      />
 
       {/* Main Container */}
       <main className="relative z-10 w-full pb-16 md:pb-0">
@@ -257,6 +257,29 @@ export default function App() {
           />
         </>
       )}
+
+      {/* Student School Account Profile & Login Modal */}
+      <StudentAuthModal
+        isOpen={isStudentAuthModalOpen}
+        onClose={() => setIsStudentAuthModalOpen(false)}
+        currentUser={currentUser}
+        onLoginSuccess={(user) => {
+          setCurrentUser(user);
+          try {
+            localStorage.setItem('c3-student-user', JSON.stringify(user));
+            if (user.academicClusterId) {
+              setAcademicClusterId(user.academicClusterId);
+              localStorage.setItem('c3-academic-cluster', user.academicClusterId);
+            }
+            if (user.name) {
+              const firstName = user.name.split(' ')[0];
+              setPreferredName(firstName);
+              localStorage.setItem('c3-preferred-name', firstName);
+            }
+          } catch {}
+        }}
+        isDarkMode={isDarkMode}
+      />
 
     </div>
   );

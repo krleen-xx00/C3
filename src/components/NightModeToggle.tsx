@@ -17,7 +17,7 @@ export const NightModeToggle: React.FC<NightModeToggleProps> = ({
       <button
         type="button"
         onClick={onToggle}
-        className={`group flex items-center space-x-2 px-3 py-2 rounded-full border transition-all duration-300 shadow-[0_2px_12px_rgba(0,0,0,0.04)] cursor-pointer ${
+        className={`group flex items-center space-x-1 sm:space-x-1.5 px-2 sm:px-2.5 py-1 sm:py-1.5 rounded-full border transition-all duration-300 shadow-xs cursor-pointer ${
           isDarkMode
             ? 'bg-[#26211E] hover:bg-[#2F2925] text-[#EDE5DB] border-[#3D352F]'
             : 'bg-white hover:bg-[#FAF7F2] text-[#3D2C2C] border-[#EDE5DA]'
@@ -25,14 +25,14 @@ export const NightModeToggle: React.FC<NightModeToggleProps> = ({
         title={isDarkMode ? 'Switch to warm day mode' : 'Switch to cozy night mode'}
         aria-label={isDarkMode ? 'Switch to warm day mode' : 'Switch to cozy night mode'}
       >
-        <div className="relative w-4 h-4 flex items-center justify-center">
+        <div className="relative w-3.5 h-3.5 flex items-center justify-center">
           {isDarkMode ? (
-            <Moon className="w-4 h-4 text-[#D8C29D] transform transition-transform group-hover:-rotate-12 duration-300" />
+            <Moon className="w-3.5 h-3.5 text-[#D8C29D] transform transition-transform group-hover:-rotate-12 duration-300" />
           ) : (
-            <Sun className="w-4 h-4 text-[#D19B64] transform transition-transform group-hover:rotate-45 duration-300" />
+            <Sun className="w-3.5 h-3.5 text-[#D19B64] transform transition-transform group-hover:rotate-45 duration-300" />
           )}
         </div>
-        <span className="text-xs font-medium tracking-wide">
+        <span className="text-[11px] sm:text-xs font-semibold tracking-wide">
           {isDarkMode ? 'Night' : 'Day'}
         </span>
       </button>
