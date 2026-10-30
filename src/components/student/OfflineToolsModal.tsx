@@ -22,18 +22,71 @@ interface OfflineToolsModalProps {
   isOpen: boolean;
   onClose: () => void;
   isDarkMode?: boolean;
-  defaultTab?: 'journaling' | 'problem-solving' | 'study-reflection' | 'stress-reset';
+  defaultTab?: 'breathing' | 'journaling' | 'problem-solving' | 'study-reflection' | 'stress-reset';
 }
 
-type OfflineTab = 'journaling' | 'problem-solving' | 'study-reflection' | 'stress-reset';
+type OfflineTab = 'breathing' | 'journaling' | 'problem-solving' | 'study-reflection' | 'stress-reset';
 
 export const OfflineToolsModal: React.FC<OfflineToolsModalProps> = ({
   isOpen,
   onClose,
   isDarkMode = true,
-  defaultTab = 'journaling'
+  defaultTab = 'breathing'
 }) => {
   const [activeTab, setActiveTab] = useState<OfflineTab>(defaultTab);
+
+  // 1-Minute Guided Breathing Exercise State
+  const [breathingSeconds, setBreathingSeconds] = useState<number>(60);
+  const [breathingState, setBreathingState] = useState<'idle' | 'running' | 'paused' | 'finished'>('idle');
+  const [breathingPhase, setBreathingPhase] = useState<'inhale' | 'hold' | 'exhale'>('inhale');
+  const [phaseSeconds, setPhaseSeconds] = useState<number>(0);
+
+  // Breathing timer countdown and 4s-4s-4s box rhythm
+  useEffect(() => {
+    if (breathingState !== 'running') return;
+
+    const interval = setInterval(() => {
+      setBreathingSeconds(prev => {
+        if (prev <= 1) {
+          setBreathingState('finished');
+          return 0;
+        }
+        return prev - 1;
+      });
+
+      setPhaseSeconds(prev => {
+        const next = (prev + 1) % 12;
+        if (next < 4) setBreathingPhase('inhale');
+        else if (next < 8) setBreathingPhase('hold');
+        else setBreathingPhase('exhale');
+        return next;
+      });
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [breathingState]);
+
+  const handleStartBreathing = () => {
+    setBreathingSeconds(60);
+    setPhaseSeconds(0);
+    setBreathingPhase('inhale');
+    setBreathingState('running');
+  };
+
+  const handlePauseBreathing = () => {
+    setBreathingState('paused');
+  };
+
+  const handleResumeBreathing = () => {
+    setBreathingState('running');
+  };
+
+  const handleFinishBreathing = () => {
+    setBreathingState('idle');
+    setBreathingSeconds(60);
+    setPhaseSeconds(0);
+    setBreathingPhase('inhale');
+  };
 
   // Journaling State
   const [journalAnswers, setJournalAnswers] = useState({
@@ -195,6 +248,21 @@ export const OfflineToolsModal: React.FC<OfflineToolsModalProps> = ({
           <div className="px-5 pt-3 border-b border-amber-500/10 flex space-x-2 overflow-x-auto scrollbar-none">
             <button
               type="button"
+              onClick={() => setActiveTab('breathing')}
+              className={`px-3 py-2 rounded-xl text-xs font-bold transition-all flex items-center space-x-1.5 shrink-0 cursor-pointer ${
+                activeTab === 'breathing'
+                  ? 'bg-purple-600 text-white shadow-sm'
+                  : isDarkMode
+                  ? 'text-[#A8988B] hover:text-[#EDE5DB] hover:bg-[#241C17]'
+                  : 'text-[#6E5A4E] hover:text-[#34241E] hover:bg-[#F3E9DD]'
+              }`}
+            >
+              <Wind className="w-3.5 h-3.5" />
+              <span>1-Min Breathing</span>
+            </button>
+
+            <button
+              type="button"
               onClick={() => setActiveTab('journaling')}
               className={`px-3 py-2 rounded-xl text-xs font-bold transition-all flex items-center space-x-1.5 shrink-0 cursor-pointer ${
                 activeTab === 'journaling'
@@ -256,6 +324,174 @@ export const OfflineToolsModal: React.FC<OfflineToolsModalProps> = ({
 
           {/* Tab Content Body */}
           <div className="p-5 sm:p-6 overflow-y-auto space-y-4">
+            {/* 0. 1-MINUTE GUIDED BREATHING TAB */}
+            {activeTab === 'breathing' && (
+              <div className="space-y-5 text-center py-2">
+                {/* Header note */}
+                <div className={`p-3.5 rounded-2xl border text-xs leading-relaxed max-w-lg mx-auto ${
+                  isDarkMode ? 'bg-[#211A15] border-[#382B21] text-[#B8A696]' : 'bg-[#FAF4ED] border-[#EADAC8] text-[#6E594B]'
+                }`}>
+                  A gentle 60-second guided rhythm (4s Inhale • 4s Soft Hold • 4s Exhale) to steady your nervous system whenever you need a mindful reset.
+                </div>
+
+                {/* Progress bar */}
+                <div className="max-w-md mx-auto space-y-1">
+                  <div className="flex justify-between items-center text-[11px] font-mono font-bold px-1">
+                    <span className={breathingState === 'running' ? 'text-purple-600 dark:text-purple-400' : 'opacity-70'}>
+                      {breathingState === 'running' ? '● Exercise in progress' : breathingState === 'paused' ? '⏸ Paused' : breathingState === 'finished' ? '✓ Completed' : 'Ready'}
+                    </span>
+                    <span className="text-stone-700 dark:text-stone-300 font-bold">
+                      {breathingSeconds}s left
+                    </span>
+                  </div>
+                  <div className="w-full h-2 rounded-full bg-stone-200 dark:bg-stone-800 overflow-hidden">
+                    <div
+                      className="h-full bg-gradient-to-r from-purple-500 to-indigo-500 transition-all duration-300"
+                      style={{ width: `${((60 - breathingSeconds) / 60) * 100}%` }}
+                    />
+                  </div>
+                </div>
+
+                {/* Pulsing Visual Breathing Orb */}
+                <div className="py-4 flex flex-col items-center justify-center relative min-h-[190px]">
+                  <motion.div
+                    animate={{
+                      scale:
+                        breathingState === 'running'
+                          ? breathingPhase === 'inhale'
+                            ? 1.35
+                            : breathingPhase === 'hold'
+                            ? 1.35
+                            : 0.85
+                          : 1,
+                      boxShadow:
+                        breathingState === 'running'
+                          ? breathingPhase === 'inhale'
+                            ? '0 0 45px rgba(168, 85, 247, 0.45)'
+                            : '0 0 15px rgba(168, 85, 247, 0.15)'
+                          : '0 0 10px rgba(168, 85, 247, 0.1)'
+                    }}
+                    transition={{ duration: 4, ease: 'easeInOut' }}
+                    className="w-32 h-32 sm:w-36 sm:h-36 rounded-full bg-gradient-to-br from-purple-500 via-indigo-500 to-purple-600 text-white font-black text-sm sm:text-base flex flex-col items-center justify-center shadow-lg uppercase tracking-wider select-none"
+                  >
+                    {breathingState === 'running' ? (
+                      <>
+                        <span className="text-base sm:text-lg">{breathingPhase}</span>
+                        <span className="text-[10px] font-normal lowercase opacity-85 mt-0.5">
+                          {breathingPhase === 'inhale' && 'slowly in'}
+                          {breathingPhase === 'hold' && 'relax shoulders'}
+                          {breathingPhase === 'exhale' && 'softly out'}
+                        </span>
+                      </>
+                    ) : breathingState === 'finished' ? (
+                      <span className="text-sm">✓ Complete</span>
+                    ) : (
+                      <>
+                        <Wind className="w-7 h-7 mb-1 opacity-90" />
+                        <span className="text-xs">1-Minute</span>
+                      </>
+                    )}
+                  </motion.div>
+                </div>
+
+                {/* Instruction Guidance Text */}
+                <div className="space-y-1 max-w-sm mx-auto">
+                  <p className="text-sm font-bold text-stone-800 dark:text-stone-100">
+                    {breathingState === 'running'
+                      ? breathingPhase === 'inhale'
+                        ? 'Breathe in slowly and gently through your nose...'
+                        : breathingPhase === 'hold'
+                        ? 'Hold softly. Keep your shoulders loose and comfortable...'
+                        : 'Release the breath slowly out through your mouth...'
+                      : breathingState === 'paused'
+                      ? 'Exercise is paused. Resume whenever you feel ready.'
+                      : breathingState === 'finished'
+                      ? 'Great job! You completed your 1-minute grounding breath.'
+                      : 'Click Start to begin 60 seconds of gentle, unhurried breathing.'}
+                  </p>
+                  <p className={`text-[11px] ${isDarkMode ? 'text-[#8A796B]' : 'text-[#8C7575]'}`}>
+                    Box breathing rhythm (4s in • 4s hold • 4s out)
+                  </p>
+                </div>
+
+                {/* Interactive Controls (Start, Pause/Resume, Finish) */}
+                <div className="flex items-center justify-center gap-2.5 pt-2 flex-wrap">
+                  {breathingState === 'idle' && (
+                    <button
+                      type="button"
+                      onClick={handleStartBreathing}
+                      className="px-6 py-2.5 rounded-xl text-xs sm:text-sm font-bold bg-purple-600 hover:bg-purple-500 text-white transition-all flex items-center space-x-2 cursor-pointer shadow-md"
+                    >
+                      <Wind className="w-4 h-4" />
+                      <span>Start 1-Minute Exercise</span>
+                    </button>
+                  )}
+
+                  {breathingState === 'running' && (
+                    <>
+                      <button
+                        type="button"
+                        onClick={handlePauseBreathing}
+                        className="px-5 py-2.5 rounded-xl text-xs sm:text-sm font-bold bg-amber-500 hover:bg-amber-400 text-stone-950 transition-all flex items-center space-x-1.5 cursor-pointer shadow-md"
+                      >
+                        <span>⏸ Pause</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={handleFinishBreathing}
+                        className={`px-5 py-2.5 rounded-xl text-xs sm:text-sm font-bold border transition-all cursor-pointer ${
+                          isDarkMode ? 'border-[#3D322B] text-[#D0C0B0] hover:bg-[#2C241F]' : 'border-[#E9DFD2] text-[#6D5A50] hover:bg-[#F8F3ED]'
+                        }`}
+                      >
+                        <span>⏹ Finish / Reset</span>
+                      </button>
+                    </>
+                  )}
+
+                  {breathingState === 'paused' && (
+                    <>
+                      <button
+                        type="button"
+                        onClick={handleResumeBreathing}
+                        className="px-5 py-2.5 rounded-xl text-xs sm:text-sm font-bold bg-emerald-600 hover:bg-emerald-500 text-white transition-all flex items-center space-x-1.5 cursor-pointer shadow-md"
+                      >
+                        <span>▶ Resume</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={handleFinishBreathing}
+                        className={`px-5 py-2.5 rounded-xl text-xs sm:text-sm font-bold border transition-all cursor-pointer ${
+                          isDarkMode ? 'border-[#3D322B] text-[#D0C0B0] hover:bg-[#2C241F]' : 'border-[#E9DFD2] text-[#6D5A50] hover:bg-[#F8F3ED]'
+                        }`}
+                      >
+                        <span>⏹ Finish / Reset</span>
+                      </button>
+                    </>
+                  )}
+
+                  {breathingState === 'finished' && (
+                    <button
+                      type="button"
+                      onClick={handleStartBreathing}
+                      className="px-6 py-2.5 rounded-xl text-xs sm:text-sm font-bold bg-purple-600 hover:bg-purple-500 text-white transition-all flex items-center space-x-2 cursor-pointer shadow-md"
+                    >
+                      <RotateCcw className="w-4 h-4" />
+                      <span>Start Again (60s)</span>
+                    </button>
+                  )}
+                </div>
+
+                {/* Non-clinical Disclaimer */}
+                <p className={`text-[10px] leading-relaxed max-w-md mx-auto pt-1 opacity-70 ${
+                  isDarkMode ? 'text-[#8A796B]' : 'text-[#8C7665]'
+                }`}>
+                  Note: This grounding exercise is optional and self-paced. It is intended for everyday relaxation and does not diagnose, treat, or replace professional mental-health care.
+                </p>
+              </div>
+            )}
+
             {/* 1. JOURNALING TAB */}
             {activeTab === 'journaling' && (
               <div className="space-y-4">

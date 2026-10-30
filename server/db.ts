@@ -7,6 +7,7 @@ import { User } from '../src/types.js';
 interface DatabaseSchema {
   flaggedRiskLogs: FlaggedRiskItem[];
   students: User[];
+  credentials?: Record<string, string>;
 }
 
 const DATA_DIR = path.join(process.cwd(), 'data');
@@ -14,7 +15,10 @@ const DB_FILE = path.join(DATA_DIR, 'c3_store.json');
 
 const DEFAULT_DB: DatabaseSchema = {
   flaggedRiskLogs: [...INITIAL_FLAGGED_RISK_LOG],
-  students: [...MOCK_USERS.filter(u => u.role === 'student')]
+  students: [...MOCK_USERS.filter(u => u.role === 'student')],
+  credentials: {
+    'maria.santos@cabiaoshs.edu.ph': 'student123'
+  }
 };
 
 class PersistentStore {
@@ -112,6 +116,22 @@ class PersistentStore {
     }
     this.saveData(this.data);
     return student;
+  }
+
+  // --- Credentials ---
+  public setCredential(email: string, pass: string): void {
+    if (!this.data.credentials) {
+      this.data.credentials = {};
+    }
+    this.data.credentials[email.toLowerCase()] = pass;
+    this.saveData(this.data);
+  }
+
+  public verifyCredential(email: string, pass: string): boolean {
+    if (!this.data.credentials) return true; // graceful if empty
+    const saved = this.data.credentials[email.toLowerCase()];
+    if (!saved) return true; // allow initial demo logins
+    return saved === pass;
   }
 }
 

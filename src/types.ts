@@ -62,6 +62,9 @@ export interface User {
   department?: string;
   inspirationSource?: InspirationSource;
   academicClusterId?: AcademicClusterId;
+  lrn?: string;
+  parentEmergencyPhone?: string;
+  parentEmergencyName?: string;
 }
 
 export type CompanionId = 'casti' | 'cedi' | 'cali';
@@ -138,6 +141,8 @@ export interface CrisisAlert {
   referralType: 'tier2_accepted' | 'tier3_emergency' | 'manual_request';
   anonymized?: boolean;
   counselorNotes?: string;
+  parentEmergencyPhone?: string;
+  lrn?: string;
 }
 
 export interface RiskEventLog {

@@ -1,6 +1,19 @@
 {
   "flaggedRiskLogs": [
     {
+      "id": "frl_test_1793230177563",
+      "timestamp": "2026-10-28T23:29:37.563Z",
+      "displayTime": "Just now",
+      "anonymizedStudentId": "STU-8921",
+      "studentRealName": "Maria Santos",
+      "gradeSection": "Grade 12 - Senior High School",
+      "companionUsed": "Casti",
+      "flaggedSnippet": "Test crisis phrase generated during student check-in",
+      "triggerPhrase": "Test crisis phrase",
+      "riskLevel": "High",
+      "status": "New"
+    },
+    {
       "id": "frl_1793224526229_246",
       "timestamp": "2026-10-28T21:55:26.229Z",
       "displayTime": "Just now",

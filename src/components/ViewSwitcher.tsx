@@ -1,5 +1,6 @@
 import React from 'react';
 import { Sparkles, Bot, Shield, Presentation } from 'lucide-react';
+import { DeploymentMode } from './DeploymentModeSwitcher';
 
 export type AppViewMode = 'student' | 'companions' | 'counselor' | 'about';
 
@@ -8,14 +9,19 @@ interface ViewSwitcherProps {
   onViewChange: (mode: AppViewMode) => void;
   isDarkMode: boolean;
   className?: string;
+  deploymentMode?: DeploymentMode;
 }
 
 export const ViewSwitcher: React.FC<ViewSwitcherProps> = ({
   viewMode,
   onViewChange,
   isDarkMode,
-  className = ""
+  className = "",
+  deploymentMode = 'all'
 }) => {
+  const isStudentDeployment = deploymentMode === 'student';
+  const isCounselorDeployment = deploymentMode === 'counselor';
+
   return (
     <div
       id="view-mode-switcher"
@@ -27,37 +33,40 @@ export const ViewSwitcher: React.FC<ViewSwitcherProps> = ({
       role="tablist"
       aria-label="Application View Switcher"
     >
-      {/* 1. Wellness Tab */}
-      <button
-        type="button"
-        id="btn-wellness-view"
-        role="tab"
-        aria-selected={viewMode === 'student'}
-        onClick={() => onViewChange('student')}
-        className={`flex items-center space-x-1 sm:space-x-1.5 px-2 sm:px-3 py-1 sm:py-1.5 rounded-full text-[11px] sm:text-xs font-bold tracking-tight transition-all duration-200 cursor-pointer ${
-          viewMode === 'student'
-            ? isDarkMode
-              ? 'bg-[#3D2E22] text-[#F9E6CD] shadow-xs ring-1 ring-[#5C4533]'
-              : 'bg-[#F2E5D5] text-[#3D2C2C] shadow-xs ring-1 ring-[#DEC5AB]'
-            : isDarkMode
-              ? 'text-[#9A897B] hover:text-[#EDE5DB] hover:bg-[#2B231D]'
-              : 'text-[#7D665B] hover:text-[#3D2C2C] hover:bg-[#F8F2EA]'
-        }`}
-      >
-        <Sparkles className={`w-3 h-3 sm:w-3.5 sm:h-3.5 ${viewMode === 'student' ? 'text-amber-500' : ''}`} />
-        <span>Wellness</span>
-      </button>
+      {/* 1. Wellness Tab (Hidden in isolated Counselor Deployment) */}
+      {!isCounselorDeployment && (
+        <button
+          type="button"
+          id="btn-wellness-view"
+          role="tab"
+          aria-selected={viewMode === 'student'}
+          onClick={() => onViewChange('student')}
+          className={`flex items-center space-x-1 sm:space-x-1.5 px-2 sm:px-3 py-1 sm:py-1.5 rounded-full text-[11px] sm:text-xs font-bold tracking-tight transition-all duration-200 cursor-pointer ${
+            viewMode === 'student'
+              ? isDarkMode
+                ? 'bg-[#3D2E22] text-[#F9E6CD] shadow-xs ring-1 ring-[#5C4533]'
+                : 'bg-[#F2E5D5] text-[#3D2C2C] shadow-xs ring-1 ring-[#DEC5AB]'
+              : isDarkMode
+                ? 'text-[#9A897B] hover:text-[#EDE5DB] hover:bg-[#2B231D]'
+                : 'text-[#7D665B] hover:text-[#3D2C2C] hover:bg-[#F8F2EA]'
+          }`}
+        >
+          <Sparkles className={`w-3 h-3 sm:w-3.5 sm:h-3.5 ${viewMode === 'student' ? 'text-amber-500' : ''}`} />
+          <span>Wellness</span>
+        </button>
+      )}
 
-      {/* 2. Counselor View Tab */}
-      <button
-        type="button"
-        id="btn-counselor-view"
-        role="tab"
-        aria-selected={viewMode === 'counselor'}
-        onClick={() => onViewChange('counselor')}
-        className={`flex items-center space-x-1 sm:space-x-1.5 px-2 sm:px-3 py-1 sm:py-1.5 rounded-full text-[11px] sm:text-xs font-bold tracking-tight transition-all duration-200 cursor-pointer ${
-          viewMode === 'counselor'
-            ? isDarkMode
+      {/* 2. Counselor View Tab (Hidden entirely in isolated Student Deployment) */}
+      {!isStudentDeployment && (
+        <button
+          type="button"
+          id="btn-counselor-view"
+          role="tab"
+          aria-selected={viewMode === 'counselor'}
+          onClick={() => onViewChange('counselor')}
+          className={`flex items-center space-x-1 sm:space-x-1.5 px-2 sm:px-3 py-1 sm:py-1.5 rounded-full text-[11px] sm:text-xs font-bold tracking-tight transition-all duration-200 cursor-pointer ${
+            viewMode === 'counselor'
+              ? isDarkMode
               ? 'bg-[#D4A373] text-[#1E1712] font-extrabold shadow-xs ring-1 ring-[#E8BE92]'
               : 'bg-[#8F5B34] text-white font-extrabold shadow-xs ring-1 ring-[#6E4221]'
             : isDarkMode
@@ -69,28 +78,31 @@ export const ViewSwitcher: React.FC<ViewSwitcherProps> = ({
         <span className="hidden lg:inline">Counselor View</span>
         <span className="inline lg:hidden">Counselor</span>
       </button>
+      )}
 
-      {/* 3. AI Companions Tab */}
-      <button
-        type="button"
-        id="btn-companions-view"
-        role="tab"
-        aria-selected={viewMode === 'companions'}
-        onClick={() => onViewChange('companions')}
-        className={`flex items-center space-x-1 sm:space-x-1.5 px-2 sm:px-3 py-1 sm:py-1.5 rounded-full text-[11px] sm:text-xs font-bold tracking-tight transition-all duration-200 cursor-pointer ${
-          viewMode === 'companions'
-            ? isDarkMode
-              ? 'bg-[#332244] text-[#EADCF7] shadow-xs ring-1 ring-[#5E3D80]'
-              : 'bg-[#EDE5F8] text-[#5C348A] shadow-xs ring-1 ring-[#D8C7F0]'
-            : isDarkMode
-              ? 'text-[#9A897B] hover:text-[#EDE5DB] hover:bg-[#2B231D]'
-              : 'text-[#7D665B] hover:text-[#3D2C2C] hover:bg-[#F8F2EA]'
-        }`}
-      >
-        <Bot className={`w-3 h-3 sm:w-3.5 sm:h-3.5 ${viewMode === 'companions' ? (isDarkMode ? 'text-purple-300' : 'text-purple-600') : ''}`} />
-        <span className="hidden lg:inline">AI Companions</span>
-        <span className="inline lg:hidden">Companions</span>
-      </button>
+      {/* 3. AI Companions Tab (Hidden in isolated Counselor Deployment) */}
+      {!isCounselorDeployment && (
+        <button
+          type="button"
+          id="btn-companions-view"
+          role="tab"
+          aria-selected={viewMode === 'companions'}
+          onClick={() => onViewChange('companions')}
+          className={`flex items-center space-x-1 sm:space-x-1.5 px-2 sm:px-3 py-1 sm:py-1.5 rounded-full text-[11px] sm:text-xs font-bold tracking-tight transition-all duration-200 cursor-pointer ${
+            viewMode === 'companions'
+              ? isDarkMode
+                ? 'bg-[#332244] text-[#EADCF7] shadow-xs ring-1 ring-[#5E3D80]'
+                : 'bg-[#EDE5F8] text-[#5C348A] shadow-xs ring-1 ring-[#D8C7F0]'
+              : isDarkMode
+                ? 'text-[#9A897B] hover:text-[#EDE5DB] hover:bg-[#2B231D]'
+                : 'text-[#7D665B] hover:text-[#3D2C2C] hover:bg-[#F8F2EA]'
+          }`}
+        >
+          <Bot className={`w-3 h-3 sm:w-3.5 sm:h-3.5 ${viewMode === 'companions' ? (isDarkMode ? 'text-purple-300' : 'text-purple-600') : ''}`} />
+          <span className="hidden lg:inline">AI Companions</span>
+          <span className="inline lg:hidden">Companions</span>
+        </button>
+      )}
 
       {/* 4. About & Presentation Deck Tab */}
       <button

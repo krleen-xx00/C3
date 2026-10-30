@@ -10,8 +10,34 @@ import { TopNavbar } from './components/TopNavbar';
 import { CrisisModal } from './components/CrisisModal';
 import { PersistentCrisisButton } from './components/PersistentCrisisButton';
 import { StudentAuthModal } from './components/StudentAuthModal';
+import { StudentAuthView } from './components/student/StudentAuthView';
+import { DeploymentMode } from './components/DeploymentModeSwitcher';
+import { RouteBadge } from './components/RouteBadge';
+
+function getInitialDeploymentMode(): DeploymentMode {
+  if (typeof window === 'undefined') return 'all';
+  const path = window.location.pathname.toLowerCase();
+  if (path === '/student' || path.startsWith('/student/')) return 'student';
+  if (path === '/counselor' || path.startsWith('/counselor/')) return 'counselor';
+  
+  const params = new URLSearchParams(window.location.search);
+  const modeParam = params.get('mode')?.toLowerCase();
+  if (modeParam === 'student') return 'student';
+  if (modeParam === 'counselor') return 'counselor';
+  if (modeParam === 'all' || modeParam === 'prototype') return 'all';
+
+  try {
+    const saved = localStorage.getItem('c3-deployment-mode');
+    if (saved === 'student' || saved === 'counselor' || saved === 'all') {
+      return saved as DeploymentMode;
+    }
+  } catch {}
+
+  return 'all';
+}
 
 export default function App() {
+  const [deploymentMode, setDeploymentMode] = useState<DeploymentMode>(getInitialDeploymentMode);
   const [currentUser, setCurrentUser] = useState<User>(() => {
     try {
       const saved = localStorage.getItem('c3-student-user');
@@ -19,7 +45,47 @@ export default function App() {
     } catch {}
     return MOCK_USERS[0]; // Maria Santos (Student)
   });
-  const [viewMode, setViewMode] = useState<AppViewMode>('student');
+
+  const [isStudentAuthenticated, setIsStudentAuthenticated] = useState<boolean>(() => {
+    try {
+      const auth = localStorage.getItem('c3-student-authenticated');
+      if (auth !== null) return auth === 'true';
+      return !!localStorage.getItem('c3-student-user');
+    } catch {
+      return false;
+    }
+  });
+
+  const handleStudentAuthSuccess = (user: User) => {
+    setCurrentUser(user);
+    setIsStudentAuthenticated(true);
+    try {
+      localStorage.setItem('c3-student-user', JSON.stringify(user));
+      localStorage.setItem('c3-student-authenticated', 'true');
+      if (user.name) {
+        const first = user.name.split(' ')[0];
+        setPreferredName(first);
+        localStorage.setItem('c3-preferred-name', first);
+      }
+      if (user.academicClusterId) {
+        setAcademicClusterId(user.academicClusterId);
+        localStorage.setItem('c3-academic-cluster', user.academicClusterId);
+      }
+    } catch {}
+  };
+
+  const handleStudentLogout = () => {
+    setIsStudentAuthenticated(false);
+    try {
+      localStorage.setItem('c3-student-authenticated', 'false');
+    } catch {}
+    setViewMode('student');
+  };
+  const [viewMode, setViewMode] = useState<AppViewMode>(() => {
+    const init = getInitialDeploymentMode();
+    if (init === 'counselor') return 'counselor';
+    return 'student';
+  });
   const [activeCompanionRoom, setActiveCompanionRoom] = useState<CompanionId | null>('casti');
   
   // Modal for Student School Account
@@ -125,6 +191,39 @@ export default function App() {
     }
   };
 
+  const handleSelectDeploymentMode = (mode: DeploymentMode) => {
+    setDeploymentMode(mode);
+    try {
+      localStorage.setItem('c3-deployment-mode', mode);
+    } catch {}
+
+    const newPath = mode === 'student' ? '/student' : mode === 'counselor' ? '/counselor' : '/';
+    if (window.location.pathname !== newPath) {
+      window.history.pushState({ mode }, '', newPath);
+    }
+
+    if (mode === 'counselor') {
+      setViewMode('counselor');
+    } else if (mode === 'student') {
+      setViewMode(prev => prev === 'counselor' ? 'student' : prev);
+    }
+  };
+
+  // Sync state with browser back/forward buttons
+  useEffect(() => {
+    const handlePopState = () => {
+      const currentMode = getInitialDeploymentMode();
+      setDeploymentMode(currentMode);
+      if (currentMode === 'counselor') {
+        setViewMode('counselor');
+      } else if (currentMode === 'student') {
+        setViewMode(prev => prev === 'counselor' ? 'student' : prev);
+      }
+    };
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
+
   const handleOpenEmergencyCrisis = (isTier3: boolean = true) => {
     setIsTier3Emergency(isTier3);
     setIsCrisisModalOpen(true);
@@ -136,11 +235,27 @@ export default function App() {
   };
 
   const handleViewChange = (mode: AppViewMode) => {
+    // Prevent switching to counselor portal in isolated student deployment mode
+    if (deploymentMode === 'student' && mode === 'counselor') {
+      return;
+    }
+    // In isolated counselor deployment mode, keep counselor focus unless about
+    if (deploymentMode === 'counselor' && (mode === 'student' || mode === 'companions')) {
+      return;
+    }
     setViewMode(mode);
     if (mode === 'companions' && !activeCompanionRoom) {
       setActiveCompanionRoom('casti');
     }
   };
+
+  // Enforce isolated routing bounds
+  const effectiveViewMode: AppViewMode =
+    deploymentMode === 'counselor'
+      ? 'counselor'
+      : deploymentMode === 'student' && viewMode === 'counselor'
+      ? 'student'
+      : viewMode;
 
   const todayStr = new Date().toISOString().split('T')[0];
   const latestMoodLog = moodLogs.find(l => l.studentId === currentUser.id && l.date === todayStr) || moodLogs[0];
@@ -183,30 +298,39 @@ export default function App() {
         }`} />
       </div>
 
-      {/* Unified Top Navigation Header: School Seal & Title + ViewSwitcher + NightMode Toggle */}
+      {/* Unified Top Navigation Header: School Seal & Title + ViewSwitcher + Deployment Mode + NightMode Toggle */}
       <TopNavbar
-        viewMode={viewMode}
+        viewMode={effectiveViewMode}
         onViewChange={handleViewChange}
         isDarkMode={isDarkMode}
         onToggleNightMode={toggleNightMode}
-        currentUser={currentUser}
+        currentUser={isStudentAuthenticated ? currentUser : undefined}
         onOpenStudentAuth={() => setIsStudentAuthModalOpen(true)}
+        onStudentLogout={isStudentAuthenticated ? handleStudentLogout : undefined}
+        deploymentMode={deploymentMode}
+        onSelectDeploymentMode={handleSelectDeploymentMode}
       />
 
       {/* Main Container */}
       <main className="relative z-10 w-full pb-16 md:pb-0">
-        {viewMode === 'about' ? (
+        {effectiveViewMode === 'about' ? (
           <AboutUsView
             isDarkMode={isDarkMode}
             onBackToDashboard={() => handleViewChange('student')}
           />
-        ) : viewMode === 'counselor' ? (
+        ) : effectiveViewMode === 'counselor' ? (
           <CounselorDashboard isDarkMode={isDarkMode} />
-        ) : viewMode === 'companions' ? (
+        ) : !isStudentAuthenticated ? (
+          <StudentAuthView
+            isDarkMode={isDarkMode}
+            onLoginSuccess={handleStudentAuthSuccess}
+          />
+        ) : effectiveViewMode === 'companions' ? (
           <CompanionRoomView
             currentUser={currentUser}
             companionId={activeCompanionRoom || 'casti'}
             isDarkMode={isDarkMode}
+            deploymentMode={deploymentMode}
             latestMoodLog={latestMoodLog}
             preferredName={preferredName}
             academicClusterId={academicClusterId}
@@ -238,7 +362,7 @@ export default function App() {
       </main>
 
       {/* Student View Only: Persistent 24/7 Always-On Crisis Support Button & Interstitial Modal */}
-      {viewMode === 'student' && (
+      {isStudentAuthenticated && (effectiveViewMode === 'student' || (deploymentMode === 'student' && effectiveViewMode !== 'about')) && (
         <>
           <PersistentCrisisButton
             onClick={handleOpenAlwaysOnCrisis}
@@ -278,6 +402,13 @@ export default function App() {
             }
           } catch {}
         }}
+        isDarkMode={isDarkMode}
+      />
+
+      {/* Floating Deployment Route Simulator Badge */}
+      <RouteBadge
+        deploymentMode={deploymentMode}
+        onSelectDeploymentMode={handleSelectDeploymentMode}
         isDarkMode={isDarkMode}
       />
 

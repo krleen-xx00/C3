@@ -1,161 +1,72 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Sparkles, RefreshCw, Bookmark, Check, BookOpen, Settings, Heart } from 'lucide-react';
+import { Sparkles, BookOpen, Bookmark, Check, Calendar } from 'lucide-react';
 import { InspirationSource } from '../../types';
-import { SECULAR_AFFIRMATIONS, SECULAR_DAILY_WISDOM } from '../../data/affirmationsData';
-
-interface Verse {
-  reference: string;
-  text: string;
-  theme: string;
-}
-
-const INSPIRATIONAL_VERSES: Record<'heavy' | 'restless' | 'quiet' | 'warm' | 'joyful', Verse[]> = {
-  heavy: [
-    {
-      reference: "Matthew 11:28",
-      text: "Come to me, all you who are weary and burdened, and I will give you rest.",
-      theme: "Rest & Renewal"
-    },
-    {
-      reference: "Psalm 46:1",
-      text: "God is our refuge and strength, an ever-present help in times of trouble.",
-      theme: "Safety & Refuge"
-    },
-    {
-      reference: "Isaiah 40:31",
-      text: "Those who hope in the Lord will renew their strength. They will soar on wings like eagles; they will run and not grow weary.",
-      theme: "Hope & Strength"
-    }
-  ],
-  restless: [
-    {
-      reference: "Philippians 4:6-7",
-      text: "Do not be anxious about anything, but in every situation, present your requests to God. And the peace of God will guard your hearts and minds.",
-      theme: "Peace & Comfort"
-    },
-    {
-      reference: "Joshua 1:9",
-      text: "Be strong and courageous. Do not be afraid or discouraged, for the Lord your God will be with you wherever you go.",
-      theme: "Courage & Faith"
-    },
-    {
-      reference: "2 Timothy 1:7",
-      text: "For God has not given us a spirit of fear, but of power, love, and a sound mind.",
-      theme: "Sound Mind"
-    }
-  ],
-  quiet: [
-    {
-      reference: "Psalm 23:1-3",
-      text: "The Lord is my shepherd, I lack nothing. He makes me lie down in green pastures, he leads me beside quiet waters, he refreshes my soul.",
-      theme: "Rest & Guidance"
-    },
-    {
-      reference: "Proverbs 3:5-6",
-      text: "Trust in the Lord with all your heart and lean not on your own understanding; in all your ways submit to him, and he will make your paths straight.",
-      theme: "Wisdom & Trust"
-    },
-    {
-      reference: "Psalm 62:1",
-      text: "Truly my soul finds rest in God; my salvation comes from him.",
-      theme: "Quiet Rest"
-    }
-  ],
-  warm: [
-    {
-      reference: "Jeremiah 29:11",
-      text: "'For I know the plans I have for you,' declares the Lord, 'plans to give you hope and a future.'",
-      theme: "Future & Hope"
-    },
-    {
-      reference: "Numbers 6:24-26",
-      text: "The Lord bless you and keep you; the Lord make his face shine on you and be gracious to you.",
-      theme: "Blessing & Peace"
-    },
-    {
-      reference: "Romans 15:13",
-      text: "May the God of hope fill you with all joy and peace as you trust in him.",
-      theme: "Joy & Hope"
-    }
-  ],
-  joyful: [
-    {
-      reference: "Psalm 118:24",
-      text: "This is the day the Lord has made; let us rejoice and be glad in it.",
-      theme: "Joy & Gratitude"
-    },
-    {
-      reference: "Nehemiah 8:10",
-      text: "The joy of the Lord is your strength.",
-      theme: "Strength & Joy"
-    },
-    {
-      reference: "Psalm 100:1-2",
-      text: "Shout for joy to the Lord, all the earth. Worship the Lord with gladness; come before him with joyful songs.",
-      theme: "Praise & Joy"
-    }
-  ]
-};
+import { getDailyInspiration } from '../../data/affirmationsData';
 
 interface DailyInspirationCardProps {
-  inspirationSource: InspirationSource;
-  currentMood?: 'heavy' | 'restless' | 'quiet' | 'warm' | 'joyful' | string;
-  onOpenSettings?: () => void;
+  inspirationSource?: InspirationSource;
   isDarkMode?: boolean;
   embedded?: boolean;
   className?: string;
+  onOpenSettings?: () => void;
 }
 
 export const DailyInspirationCard: React.FC<DailyInspirationCardProps> = ({
-  inspirationSource,
-  currentMood = 'quiet',
-  onOpenSettings,
+  inspirationSource: propSource = 'affirmations',
   isDarkMode = false,
   embedded = false,
   className = ''
 }) => {
-  const [index, setIndex] = useState<number>(0);
+  const [source, setSource] = useState<'affirmations' | 'bible'>(() => {
+    try {
+      const saved = localStorage.getItem('c3-inspiration-source');
+      if (saved === 'bible' || saved === 'affirmations') return saved;
+    } catch {}
+    return propSource === 'bible' ? 'bible' : 'affirmations';
+  });
+
   const [copied, setCopied] = useState<boolean>(false);
 
-  // Normalize mood category
-  let moodCategory: 'heavy' | 'restless' | 'quiet' | 'warm' | 'joyful' = 'quiet';
-  const m = currentMood.toLowerCase();
-  if (m === 'heavy' || m === 'sad' || m === 'tired') moodCategory = 'heavy';
-  else if (m === 'restless' || m === 'anxious') moodCategory = 'restless';
-  else if (m === 'warm' || m === 'calm') moodCategory = 'warm';
-  else if (m === 'joyful' || m === 'energetic') moodCategory = 'joyful';
+  // Deterministic daily entry derived from the current local calendar date
+  const todayEntry = getDailyInspiration(source);
 
-  const affirmationsList = SECULAR_AFFIRMATIONS[moodCategory] || SECULAR_AFFIRMATIONS.quiet;
-  const versesList = INSPIRATIONAL_VERSES[moodCategory] || INSPIRATIONAL_VERSES.quiet;
+  // Formatted date string for student reference (e.g., "Thursday, October 29")
+  const todayFormatted = new Date().toLocaleDateString(undefined, {
+    weekday: 'short',
+    month: 'short',
+    day: 'numeric'
+  });
 
-  const currentAffirmation = affirmationsList[index % affirmationsList.length];
-  const currentVerse = versesList[index % versesList.length];
-
-  const handleNext = () => {
-    setIndex(prev => prev + 1);
+  const handleToggleSource = (newSource: 'affirmations' | 'bible') => {
+    setSource(newSource);
+    try {
+      localStorage.setItem('c3-inspiration-source', newSource);
+    } catch {}
   };
 
   const handleCopy = () => {
-    if (inspirationSource === 'affirmations') {
-      navigator.clipboard.writeText(`"${currentAffirmation.text}" — Daily Affirmation`);
-    } else {
-      navigator.clipboard.writeText(`"${currentVerse.text}" — ${currentVerse.reference}`);
+    const copyText =
+      todayEntry.type === 'scripture'
+        ? `"${todayEntry.text}" — ${todayEntry.referenceOrTheme}`
+        : `"${todayEntry.text}" — Daily Affirmation (${todayEntry.referenceOrTheme})`;
+    
+    if (navigator?.clipboard?.writeText) {
+      navigator.clipboard.writeText(copyText);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2200);
     }
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2500);
   };
 
+  const isScripture = todayEntry.type === 'scripture';
+
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 10 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.4, ease: "easeOut" }}
+    <div
       className={`relative overflow-hidden flex flex-col justify-between transition-colors duration-300 text-left ${
         embedded
           ? `rounded-2xl p-4 sm:p-5 border ${
               isDarkMode
-                ? 'bg-[#1D1714]/80 border-[#382E26] shadow-none'
+                ? 'bg-[#1D1714]/90 border-[#382E26] shadow-none'
                 : 'bg-gradient-to-br from-amber-50/70 via-white to-orange-50/30 border-amber-200/60 shadow-2xs'
             }`
           : `rounded-3xl p-5 sm:p-6 border shadow-xs ${
@@ -165,126 +76,149 @@ export const DailyInspirationCard: React.FC<DailyInspirationCardProps> = ({
             }`
       } ${className}`}
     >
-      {/* Decorative Gold Side Accent Line */}
-      <div className={`absolute top-0 left-0 w-1.5 h-full bg-gradient-to-b from-amber-400 via-orange-400 to-amber-500 ${
-        embedded ? 'rounded-l-2xl' : 'rounded-l-3xl'
-      }`} />
+      {/* Decorative Warm Side Accent Line */}
+      <div
+        className={`absolute top-0 left-0 w-1.5 h-full bg-gradient-to-b ${
+          isScripture
+            ? 'from-emerald-400 via-teal-400 to-emerald-500'
+            : 'from-amber-400 via-orange-400 to-amber-500'
+        } ${embedded ? 'rounded-l-2xl' : 'rounded-l-3xl'}`}
+      />
 
       <div>
-        {/* Header Bar */}
-        <div className="flex items-center justify-between mb-2.5 pl-2">
-          <div className="flex items-center space-x-1.5 sm:space-x-2">
-            <div className={`p-1.5 rounded-xl shrink-0 ${
-              isDarkMode ? 'bg-amber-950/80 text-amber-300' : 'bg-amber-100 text-amber-700'
-            }`}>
-              {inspirationSource === 'affirmations' ? <Sparkles className="w-3.5 h-3.5" /> : <BookOpen className="w-3.5 h-3.5" />}
-            </div>
-            <span className={`text-[11px] sm:text-xs font-bold uppercase tracking-wider ${
-              isDarkMode ? 'text-amber-300' : 'text-amber-800'
-            }`}>
-              {inspirationSource === 'affirmations' ? 'Affirmation for Your Heart' : 'Scripture for Your Heart'}
+        {/* Top Header: Badge, Calendar Date & Quick Toggle */}
+        <div className="flex items-center justify-between mb-3 pl-2 flex-wrap gap-2">
+          {/* Badge & Date Indicator */}
+          <div className="flex items-center space-x-2 flex-wrap gap-y-1">
+            <span
+              className={`inline-flex items-center space-x-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold uppercase tracking-wider border shadow-2xs ${
+                isScripture
+                  ? isDarkMode
+                    ? 'bg-emerald-950/70 text-emerald-300 border-emerald-800/40'
+                    : 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                  : isDarkMode
+                  ? 'bg-amber-950/70 text-amber-300 border-amber-800/40'
+                  : 'bg-amber-100/80 text-amber-900 border-amber-200'
+              }`}
+            >
+              {isScripture ? <BookOpen className="w-3.5 h-3.5" /> : <Sparkles className="w-3.5 h-3.5" />}
+              <span>{isScripture ? 'Scripture of the Day' : 'Daily Affirmation'}</span>
             </span>
-            <span className={`hidden xs:inline-block text-[10px] px-2 py-0.5 rounded-full font-semibold border ${
-              isDarkMode
-                ? 'bg-amber-950/60 text-amber-300 border-amber-800/50'
-                : 'bg-amber-100/80 text-amber-800 border-amber-200/50'
-            }`}>
-              {inspirationSource === 'affirmations' ? currentAffirmation.theme : currentVerse.theme}
+
+            {/* Calendar Day Pill */}
+            <span
+              className={`inline-flex items-center space-x-1 px-2 py-0.5 rounded-full text-[10px] font-medium border ${
+                isDarkMode ? 'bg-[#251D18] text-[#A8988A] border-[#3A2D23]' : 'bg-stone-50 text-stone-600 border-stone-200'
+              }`}
+              title="Updates automatically every calendar day"
+            >
+              <Calendar className="w-2.5 h-2.5 opacity-60" />
+              <span>{todayFormatted}</span>
             </span>
           </div>
 
-          <div className="flex items-center space-x-1 shrink-0">
-            {onOpenSettings && (
+          {/* Simple Source Switcher & Copy Action */}
+          <div className="flex items-center space-x-1.5">
+            <div
+              className={`p-0.5 rounded-full border flex items-center text-[10px] font-bold ${
+                isDarkMode ? 'bg-[#15110E] border-[#33271F]' : 'bg-stone-100 border-stone-200'
+              }`}
+            >
               <button
                 type="button"
-                onClick={onOpenSettings}
-                className="p-1.5 text-slate-400 hover:text-amber-600 dark:hover:text-amber-300 rounded-lg hover:bg-amber-100/50 dark:hover:bg-amber-950/50 transition-colors cursor-pointer"
-                title="Change Inspiration Source"
-                aria-label="Change Inspiration Source"
+                onClick={() => handleToggleSource('affirmations')}
+                className={`px-2 py-0.5 rounded-full transition-all cursor-pointer ${
+                  source === 'affirmations'
+                    ? isDarkMode
+                      ? 'bg-amber-500 text-stone-950 shadow-xs'
+                      : 'bg-amber-500 text-white shadow-xs'
+                    : isDarkMode
+                    ? 'text-[#8A796B] hover:text-[#EDE5DB]'
+                    : 'text-stone-500 hover:text-stone-800'
+                }`}
+                title="Switch to Daily Affirmation"
               >
-                <Settings className="w-3.5 h-3.5" />
+                Affirmation
               </button>
-            )}
+              <button
+                type="button"
+                onClick={() => handleToggleSource('bible')}
+                className={`px-2 py-0.5 rounded-full transition-all cursor-pointer ${
+                  source === 'bible'
+                    ? isDarkMode
+                      ? 'bg-emerald-600 text-white shadow-xs'
+                      : 'bg-emerald-600 text-white shadow-xs'
+                    : isDarkMode
+                    ? 'text-[#8A796B] hover:text-[#EDE5DB]'
+                    : 'text-stone-500 hover:text-stone-800'
+                }`}
+                title="Switch to Daily Scripture Verse"
+              >
+                Scripture
+              </button>
+            </div>
+
             <button
               type="button"
               onClick={handleCopy}
-              className="p-1.5 text-slate-400 hover:text-amber-600 dark:hover:text-amber-300 rounded-lg hover:bg-amber-100/50 dark:hover:bg-amber-950/50 transition-colors cursor-pointer"
-              title="Copy quote"
-              aria-label="Copy quote"
+              className={`p-1.5 rounded-lg border transition-colors cursor-pointer ${
+                isDarkMode
+                  ? 'border-[#382E26] hover:bg-[#2C231D] text-[#8C7A6D] hover:text-amber-300'
+                  : 'border-stone-200 hover:bg-stone-100 text-stone-500 hover:text-amber-700'
+              }`}
+              title="Copy entry"
+              aria-label="Copy entry"
             >
-              {copied ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Bookmark className="w-3.5 h-3.5" />}
-            </button>
-            <button
-              type="button"
-              onClick={handleNext}
-              className="p-1.5 text-slate-400 hover:text-amber-600 dark:hover:text-amber-300 rounded-lg hover:bg-amber-100/50 dark:hover:bg-amber-950/50 transition-colors cursor-pointer"
-              title="Next inspiration"
-              aria-label="Next inspiration"
-            >
-              <RefreshCw className="w-3.5 h-3.5" />
+              {copied ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Bookmark className="w-3.5 h-3.5" />}
             </button>
           </div>
         </div>
 
-        {/* Animated Content */}
-        <div className="pl-2 pr-1">
+        {/* Entry Text */}
+        <div className="pl-2 pr-1 py-1">
           <AnimatePresence mode="wait">
-            {inspirationSource === 'affirmations' ? (
-              <motion.div
-                key={`aff_${index}_${moodCategory}`}
-                initial={{ opacity: 0, x: 8 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: -8 }}
-                transition={{ duration: 0.22 }}
+            <motion.div
+              key={`${todayEntry.id}_${source}`}
+              initial={{ opacity: 0, y: 4 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -4 }}
+              transition={{ duration: 0.25 }}
+              className="space-y-2"
+            >
+              <p
+                className={`text-xs sm:text-sm font-medium leading-relaxed font-sans ${
+                  isScripture ? 'italic text-stone-800 dark:text-stone-100' : 'text-stone-900 dark:text-stone-100'
+                }`}
               >
-                <p className="text-xs sm:text-sm font-medium text-slate-800 dark:text-slate-200 leading-relaxed font-sans">
-                  "{currentAffirmation.text}"
-                </p>
-                <p className="mt-1.5 text-[11px] sm:text-xs font-bold text-amber-700 dark:text-amber-400 flex items-center space-x-1">
-                  <span>— Gentle Reflection</span>
-                  <Sparkles className="w-3 h-3 text-amber-500 inline ml-1" />
-                </p>
-              </motion.div>
-            ) : (
-              <motion.div
-                key={`ver_${index}_${moodCategory}`}
-                initial={{ opacity: 0, x: 8 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: -8 }}
-                transition={{ duration: 0.22 }}
-              >
-                <p className="text-xs sm:text-sm font-medium text-slate-800 dark:text-slate-200 italic leading-relaxed font-sans">
-                  "{currentVerse.text}"
-                </p>
-                <p className="mt-1.5 text-[11px] sm:text-xs font-bold text-amber-700 dark:text-amber-400 flex items-center space-x-1">
-                  <span>— {currentVerse.reference}</span>
-                  <Sparkles className="w-3 h-3 text-amber-500 inline ml-1" />
-                </p>
-              </motion.div>
-            )}
+                &ldquo;{todayEntry.text}&rdquo;
+              </p>
+
+              {/* Verified Attribution / Source */}
+              <div className="flex items-center space-x-2 text-[11px] sm:text-xs font-bold pt-0.5">
+                <span className={isScripture ? 'text-emerald-700 dark:text-emerald-400' : 'text-amber-700 dark:text-amber-400'}>
+                  — {todayEntry.referenceOrTheme}
+                </span>
+                <span className="opacity-40 font-normal">•</span>
+                <span className={`text-[10px] font-semibold uppercase tracking-wider ${
+                  isDarkMode ? 'text-[#8A796B]' : 'text-[#8C7665]'
+                }`}>
+                  {isScripture ? 'Holy Scripture' : 'Gentle Encouragement'}
+                </span>
+              </div>
+            </motion.div>
           </AnimatePresence>
         </div>
       </div>
 
-      {/* Footer Hint */}
-      <div className={`mt-3 pl-2 pt-2 border-t flex items-center justify-between text-[10px] sm:text-[11px] text-slate-400 ${
-        isDarkMode ? 'border-amber-900/30' : 'border-amber-100'
-      }`}>
-        <div className="flex items-center space-x-1.5">
-          <span className="font-medium text-slate-500 dark:text-slate-400">
-            {inspirationSource === 'affirmations' ? 'Daily Affirmations' : 'Scripture Verses'}
-          </span>
-          <span>•</span>
-          <button
-            type="button"
-            onClick={onOpenSettings}
-            className="text-amber-600 dark:text-amber-400 font-semibold hover:underline cursor-pointer"
-          >
-            Switch to {inspirationSource === 'affirmations' ? 'Scripture' : 'Affirmations'}
-          </button>
-        </div>
-        {copied && <span className="text-emerald-600 dark:text-emerald-400 font-bold">Copied!</span>}
+      {/* Subtle Footer Note */}
+      <div
+        className={`mt-3 pl-2 pt-2 border-t flex items-center justify-between text-[10px] ${
+          isDarkMode ? 'border-[#2C241E] text-[#8A796B]' : 'border-amber-100 text-[#8C7665]'
+        }`}
+      >
+        <span>Changes automatically each calendar day • Works offline without AI</span>
+        {copied && <span className="text-emerald-600 dark:text-emerald-400 font-bold">Copied to clipboard!</span>}
       </div>
-    </motion.div>
+    </div>
   );
 };

@@ -21,6 +21,8 @@ export interface FlaggedRiskItem {
   anonymizedStudentId: string; // e.g. "STU-8921"
   studentRealName?: string; // Kept private for counselor reference
   gradeSection: string;
+  parentEmergencyPhone?: string;
+  lrn?: string;
   companionUsed: 'Cali' | 'Casti' | 'Cedi';
   flaggedSnippet: string;
   triggerPhrase?: string;
@@ -155,6 +157,13 @@ export function addFlaggedRiskAlert(item: Omit<FlaggedRiskItem, 'id' | 'timestam
   };
   const updated = [newItem, ...current];
   saveFlaggedRiskLogs(updated);
+
+  // Notify active components in the same tab / window immediately
+  if (typeof window !== 'undefined') {
+    try {
+      window.dispatchEvent(new CustomEvent('c3-flagged-risk-updated', { detail: newItem }));
+    } catch {}
+  }
 
   // Notify server if online
   try {

@@ -1,168 +1,244 @@
-export interface Affirmation {
+export type DailyEntryType = 'affirmation' | 'scripture';
+
+export interface DailyInspirationEntry {
   id: string;
-  moodCategory: 'heavy' | 'restless' | 'quiet' | 'warm' | 'joyful';
+  type: DailyEntryType;
   text: string;
-  theme: string;
+  referenceOrTheme: string;
+  category: string;
 }
 
-export const SECULAR_AFFIRMATIONS: Record<'heavy' | 'restless' | 'quiet' | 'warm' | 'joyful', Affirmation[]> = {
-  heavy: [
-    {
-      id: 'aff_h_1',
-      moodCategory: 'heavy',
-      text: 'You are allowed to take things one moment at a time. Rest is productive, and you do not have to carry everything alone.',
-      theme: 'Patience & Compassion'
-    },
-    {
-      id: 'aff_h_2',
-      moodCategory: 'heavy',
-      text: 'Even on the heaviest days, your presence has value. Give yourself permission to pause and breathe gently.',
-      theme: 'Self-Worth'
-    },
-    {
-      id: 'aff_h_3',
-      moodCategory: 'heavy',
-      text: 'Be patient with yourself today. Small steps and quiet breaths are more than enough.',
-      theme: 'Gentle Progress'
-    },
-    {
-      id: 'aff_h_4',
-      moodCategory: 'heavy',
-      text: 'You have navigated through difficult storms before, and you have the quiet strength to weather this one with care.',
-      theme: 'Inner Resilience'
-    }
-  ],
-  restless: [
-    {
-      id: 'aff_r_1',
-      moodCategory: 'restless',
-      text: 'You are safe in this present moment. Let go of what you cannot control right now and focus on your breath.',
-      theme: 'Grounding & Calm'
-    },
-    {
-      id: 'aff_r_2',
-      moodCategory: 'restless',
-      text: 'Slow down and ground your feet. One calm thought at a time will bring you back to steady ground.',
-      theme: 'Steadiness'
-    },
-    {
-      id: 'aff_r_3',
-      moodCategory: 'restless',
-      text: 'Your mind may be racing, but you don\'t have to keep up with every thought. Allow stillness to find you.',
-      theme: 'Mental Space'
-    },
-    {
-      id: 'aff_r_4',
-      moodCategory: 'restless',
-      text: 'Breathe in peace, exhale tension. You are capable of navigating whatever comes your way.',
-      theme: 'Release & Ease'
-    }
-  ],
-  quiet: [
-    {
-      id: 'aff_q_1',
-      moodCategory: 'quiet',
-      text: 'Peace is a quiet sanctuary within you. Cherish this stillness and let your mind recharge.',
-      theme: 'Mindful Rest'
-    },
-    {
-      id: 'aff_q_2',
-      moodCategory: 'quiet',
-      text: 'Quiet moments bring clarity and renewal. Trust the calm rhythm of your day.',
-      theme: 'Inner Clarity'
-    },
-    {
-      id: 'aff_q_3',
-      moodCategory: 'quiet',
-      text: 'There is quiet strength in simply being present without pressure or rush.',
-      theme: 'Present Awareness'
-    },
-    {
-      id: 'aff_q_4',
-      moodCategory: 'quiet',
-      text: 'Let this steady serenity nourish your heart and give you clarity for the path ahead.',
-      theme: 'Gentle Harmony'
-    }
-  ],
-  warm: [
-    {
-      id: 'aff_w_1',
-      moodCategory: 'warm',
-      text: 'Your positive energy is a gentle light for yourself and the people around you.',
-      theme: 'Kindness & Warmth'
-    },
-    {
-      id: 'aff_w_2',
-      moodCategory: 'warm',
-      text: 'Acknowledge your progress and celebrate the small, meaningful moments in your day.',
-      theme: 'Gratitude'
-    },
-    {
-      id: 'aff_w_3',
-      moodCategory: 'warm',
-      text: 'Carry this warmth with kindness. You have so much good to offer the world.',
-      theme: 'Positive Impact'
-    },
-    {
-      id: 'aff_w_4',
-      moodCategory: 'warm',
-      text: 'Trust in your unique abilities and let your steady confidence guide your actions.',
-      theme: 'Quiet Confidence'
-    }
-  ],
-  joyful: [
-    {
-      id: 'aff_j_1',
-      moodCategory: 'joyful',
-      text: 'Celebrate this bright spark in your spirit. Gratitude magnifies every joyful moment.',
-      theme: 'Bright Energy'
-    },
-    {
-      id: 'aff_j_2',
-      moodCategory: 'joyful',
-      text: 'Your joy is authentic and meaningful. Savor this light and let it inspire your path forward.',
-      theme: 'Celebration'
-    },
-    {
-      id: 'aff_j_3',
-      moodCategory: 'joyful',
-      text: 'Hold onto this vibrant feeling and remember that brighter days are always within reach.',
-      theme: 'Optimism'
-    },
-    {
-      id: 'aff_j_4',
-      moodCategory: 'joyful',
-      text: 'You deserve this happiness and fulfillment. Let your radiant optimism shine.',
-      theme: 'Fulfillment'
-    }
-  ]
-};
-
-export interface DailyWisdomQuote {
-  quote: string;
-  source: string;
-  theme: string;
-}
-
-export const SECULAR_DAILY_WISDOM: DailyWisdomQuote[] = [
+// Curated daily affirmations and verified public domain scripture verses
+export const DAILY_AFFIRMATIONS: DailyInspirationEntry[] = [
   {
-    quote: "Small disciplines repeated with consistency every day lead to great achievements gained slowly over time.",
-    source: "Mindful Focus Note",
-    theme: "Growth & Focus"
+    id: 'aff_01',
+    type: 'affirmation',
+    text: 'You are allowed to take things one moment at a time. Rest is productive, and you do not have to carry everything alone.',
+    referenceOrTheme: 'Patience & Self-Compassion',
+    category: 'Rest & Renewal'
   },
   {
-    quote: "You don't have to control your thoughts; you just have to stop letting them control you.",
-    source: "Mindfulness Practice",
-    theme: "Peace of Mind"
+    id: 'aff_02',
+    type: 'affirmation',
+    text: 'Small steps repeated with consistency every day lead to steady achievements over time.',
+    referenceOrTheme: 'Consistent Growth',
+    category: 'Focus & Growth'
   },
   {
-    quote: "Courage does not always roar. Sometimes courage is the quiet voice at the end of the day saying, 'I will try again tomorrow.'",
-    source: "Gentle Resilience Note",
-    theme: "Perseverance"
+    id: 'aff_03',
+    type: 'affirmation',
+    text: 'Be patient with yourself today. Gentle effort and quiet breaths are more than enough.',
+    referenceOrTheme: 'Gentle Progress',
+    category: 'Peace & Rest'
   },
   {
-    quote: "Taking time to rest, breathe, and reflect is not giving up—it is preparing to rise with clearer eyes.",
-    source: "Cabiao SHS Guidance Reflection",
-    theme: "Rest & Renewal"
+    id: 'aff_04',
+    type: 'affirmation',
+    text: 'You do not have to control every thought; pause, breathe, and focus on what is within your reach.',
+    referenceOrTheme: 'Mindful Grounding',
+    category: 'Wisdom & Calm'
+  },
+  {
+    id: 'aff_05',
+    type: 'affirmation',
+    text: 'Quiet moments bring clarity and renewal. Trust the steady, calm rhythm of your learning journey.',
+    referenceOrTheme: 'Inner Clarity',
+    category: 'Peace & Rest'
+  },
+  {
+    id: 'aff_06',
+    type: 'affirmation',
+    text: 'Acknowledge your progress and celebrate the small, meaningful milestones in your school day.',
+    referenceOrTheme: 'Gratitude & Encouragement',
+    category: 'Hope & Renewal'
+  },
+  {
+    id: 'aff_07',
+    type: 'affirmation',
+    text: 'Your worth is not measured by perfection, but by your willingness to learn and grow with kindness.',
+    referenceOrTheme: 'Self-Worth',
+    category: 'Strength & Courage'
+  },
+  {
+    id: 'aff_08',
+    type: 'affirmation',
+    text: 'Take pride in how far you have already come, and meet today with quiet confidence.',
+    referenceOrTheme: 'Quiet Resilience',
+    category: 'Strength & Courage'
+  },
+  {
+    id: 'aff_09',
+    type: 'affirmation',
+    text: 'Breathe in peace, exhale tension. You are capable of handling today’s tasks step by step.',
+    referenceOrTheme: 'Calm Steadiness',
+    category: 'Wisdom & Calm'
+  },
+  {
+    id: 'aff_10',
+    type: 'affirmation',
+    text: 'Stillness is not wasted time; it is where your mind gathers the energy to begin anew.',
+    referenceOrTheme: 'Restful Renewal',
+    category: 'Rest & Renewal'
+  },
+  {
+    id: 'aff_11',
+    type: 'affirmation',
+    text: 'Give yourself credit for the effort you put in, even when results take time to show.',
+    referenceOrTheme: 'Perseverance',
+    category: 'Focus & Growth'
+  },
+  {
+    id: 'aff_12',
+    type: 'affirmation',
+    text: 'You have navigated difficult days before, and you carry the quiet strength to handle today as well.',
+    referenceOrTheme: 'Inner Strength',
+    category: 'Strength & Courage'
+  },
+  {
+    id: 'aff_13',
+    type: 'affirmation',
+    text: 'Kindness toward yourself creates the best foundation for kindness toward your classmates and teachers.',
+    referenceOrTheme: 'Compassion',
+    category: 'Hope & Renewal'
+  },
+  {
+    id: 'aff_14',
+    type: 'affirmation',
+    text: 'Focus on today’s single step. The rest of the staircase will become clear as you move forward.',
+    referenceOrTheme: 'Present Focus',
+    category: 'Focus & Growth'
   }
 ];
+
+export const DAILY_SCRIPTURES: DailyInspirationEntry[] = [
+  {
+    id: 'scr_01',
+    type: 'scripture',
+    text: 'The Lord is my shepherd; I lack nothing. He leads me beside quiet waters, he refreshes my soul.',
+    referenceOrTheme: 'Psalm 23:1-3',
+    category: 'Peace & Rest'
+  },
+  {
+    id: 'scr_02',
+    type: 'scripture',
+    text: 'Trust in the Lord with all your heart, and do not lean on your own understanding; in all your ways acknowledge him, and he will make straight your paths.',
+    referenceOrTheme: 'Proverbs 3:5-6',
+    category: 'Wisdom & Calm'
+  },
+  {
+    id: 'scr_03',
+    type: 'scripture',
+    text: 'Those who hope in the Lord will renew their strength. They will soar on wings like eagles; they will run and not grow weary, they will walk and not be faint.',
+    referenceOrTheme: 'Isaiah 40:31',
+    category: 'Strength & Courage'
+  },
+  {
+    id: 'scr_04',
+    type: 'scripture',
+    text: 'For I know the plans I have for you, declares the Lord, plans to prosper you and not to harm you, plans to give you hope and a future.',
+    referenceOrTheme: 'Jeremiah 29:11',
+    category: 'Hope & Renewal'
+  },
+  {
+    id: 'scr_05',
+    type: 'scripture',
+    text: 'Come to me, all you who are weary and burdened, and I will give you rest. Take my yoke upon you and learn from me, for I am gentle and humble in heart.',
+    referenceOrTheme: 'Matthew 11:28-29',
+    category: 'Rest & Renewal'
+  },
+  {
+    id: 'scr_06',
+    type: 'scripture',
+    text: 'Do not be anxious about anything, but in every situation, by prayer and petition, with thanksgiving, present your requests to God. And the peace of God will guard your hearts.',
+    referenceOrTheme: 'Philippians 4:6-7',
+    category: 'Wisdom & Calm'
+  },
+  {
+    id: 'scr_07',
+    type: 'scripture',
+    text: 'Have I not commanded you? Be strong and courageous. Do not be afraid; do not be discouraged, for the Lord your God will be with you wherever you go.',
+    referenceOrTheme: 'Joshua 1:9',
+    category: 'Strength & Courage'
+  },
+  {
+    id: 'scr_08',
+    type: 'scripture',
+    text: 'God is our refuge and strength, an ever-present help in trouble. Therefore we will not fear, though the earth give way.',
+    referenceOrTheme: 'Psalm 46:1-2',
+    category: 'Strength & Courage'
+  },
+  {
+    id: 'scr_09',
+    type: 'scripture',
+    text: 'For God has not given us a spirit of fear, but of power, love, and a sound mind.',
+    referenceOrTheme: '2 Timothy 1:7',
+    category: 'Peace & Rest'
+  },
+  {
+    id: 'scr_10',
+    type: 'scripture',
+    text: 'May the God of hope fill you with all joy and peace as you trust in him, so that you may overflow with hope by the power of the Holy Spirit.',
+    referenceOrTheme: 'Romans 15:13',
+    category: 'Hope & Renewal'
+  },
+  {
+    id: 'scr_11',
+    type: 'scripture',
+    text: 'This is the day the Lord has made; let us rejoice and be glad in it.',
+    referenceOrTheme: 'Psalm 118:24',
+    category: 'Hope & Renewal'
+  },
+  {
+    id: 'scr_12',
+    type: 'scripture',
+    text: 'The Lord is close to the brokenhearted and saves those who are crushed in spirit.',
+    referenceOrTheme: 'Psalm 34:18',
+    category: 'Rest & Renewal'
+  },
+  {
+    id: 'scr_13',
+    type: 'scripture',
+    text: 'Cast all your anxiety on him because he cares for you.',
+    referenceOrTheme: '1 Peter 5:7',
+    category: 'Wisdom & Calm'
+  },
+  {
+    id: 'scr_14',
+    type: 'scripture',
+    text: 'The steadfast love of the Lord never ceases; his mercies never come to an end; they are new every morning; great is your faithfulness.',
+    referenceOrTheme: 'Lamentations 3:22-23',
+    category: 'Hope & Renewal'
+  }
+];
+
+// Helper to calculate a stable deterministic date index
+export function getCalendarDayIndex(targetDate?: Date): number {
+  const d = targetDate || new Date();
+  const year = d.getFullYear();
+  const month = d.getMonth() + 1; // 1 to 12
+  const day = d.getDate(); // 1 to 31
+  // Simple deterministic integer hashing the calendar date
+  return Math.abs((year * 372 + month * 31 + day));
+}
+
+// Get deterministic daily affirmation for a given date
+export function getDailyAffirmation(targetDate?: Date): DailyInspirationEntry {
+  const idx = getCalendarDayIndex(targetDate) % DAILY_AFFIRMATIONS.length;
+  return DAILY_AFFIRMATIONS[idx];
+}
+
+// Get deterministic daily scripture for a given date
+export function getDailyScripture(targetDate?: Date): DailyInspirationEntry {
+  const idx = getCalendarDayIndex(targetDate) % DAILY_SCRIPTURES.length;
+  return DAILY_SCRIPTURES[idx];
+}
+
+// Get active entry according to preferred type (or alternating)
+export function getDailyInspiration(
+  source: 'affirmations' | 'scripture' | 'bible' = 'affirmations',
+  targetDate?: Date
+): DailyInspirationEntry {
+  return source === 'bible' || source === 'scripture'
+    ? getDailyScripture(targetDate)
+    : getDailyAffirmation(targetDate);
+}

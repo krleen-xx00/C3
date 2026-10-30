@@ -699,8 +699,71 @@ async function startServer() {
   });
 
   // 8. Student School Account Authentication & Directory
+  app.post("/api/auth/student-register", (req, res) => {
+    const { name, email, password, gradeSection, academicClusterId, lrn, parentEmergencyPhone, parentEmergencyName } = req.body;
+    if (!email || typeof email !== 'string') {
+      return res.status(400).json({ error: "School email is required" });
+    }
+    if (!name || typeof name !== 'string') {
+      return res.status(400).json({ error: "Student name is required" });
+    }
+
+    const cleanEmail = email.trim().toLowerCase();
+    const existing = db.findStudentByEmail(cleanEmail);
+    if (existing) {
+      return res.status(400).json({ error: "An account with this school email already exists. Please sign in." });
+    }
+
+    // Generate anonymized student ID based on numeric hash or random 4-digit code
+    const numericPortion = cleanEmail.replace(/[^0-9]/g, '');
+    const suffix = numericPortion.slice(-4) || String(Math.floor(1000 + Math.random() * 9000));
+    const generatedAnonId = `STU-${suffix}`;
+
+    const newStudent: User = {
+      id: `std_${cleanEmail.replace(/[^a-z0-9]/g, '_')}`,
+      name: name.trim(),
+      email: cleanEmail,
+      role: 'student',
+      avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
+      gradeSection: gradeSection?.trim() || 'Grade 12 - Senior High School',
+      studentId: generatedAnonId,
+      academicClusterId: academicClusterId || 'tp-ict',
+      inspirationSource: 'affirmations',
+      lrn: lrn ? String(lrn).trim() : undefined,
+      parentEmergencyPhone: parentEmergencyPhone ? String(parentEmergencyPhone).trim() : undefined,
+      parentEmergencyName: parentEmergencyName ? String(parentEmergencyName).trim() : undefined
+    };
+
+    db.upsertStudent(newStudent);
+    if (password) {
+      db.setCredential(cleanEmail, String(password));
+    }
+
+    res.json({ success: true, user: newStudent, isNewAccount: true });
+  });
+
+  app.post("/api/auth/student-login", (req, res) => {
+    const { email, password } = req.body;
+    if (!email || typeof email !== 'string') {
+      return res.status(400).json({ error: "School email is required" });
+    }
+
+    const cleanEmail = email.trim().toLowerCase();
+    const existing = db.findStudentByEmail(cleanEmail);
+
+    if (!existing) {
+      return res.status(404).json({ error: "No student account found with this school email. Please sign up first." });
+    }
+
+    if (password && !db.verifyCredential(cleanEmail, String(password))) {
+      return res.status(401).json({ error: "Incorrect password. Please try again." });
+    }
+
+    res.json({ success: true, user: existing });
+  });
+
   app.post("/api/auth/school-login", (req, res) => {
-    const { email, name, gradeSection, academicClusterId } = req.body;
+    const { email, name, gradeSection, academicClusterId, lrn, parentEmergencyPhone } = req.body;
     if (!email || typeof email !== 'string') {
       return res.status(400).json({ error: "School email is required" });
     }
@@ -709,6 +772,10 @@ async function startServer() {
     const existing = db.findStudentByEmail(cleanEmail);
 
     if (existing) {
+      if (parentEmergencyPhone && !existing.parentEmergencyPhone) {
+        existing.parentEmergencyPhone = parentEmergencyPhone;
+        db.upsertStudent(existing);
+      }
       return res.json({ success: true, user: existing });
     }
 
@@ -726,7 +793,9 @@ async function startServer() {
       gradeSection: gradeSection || 'Grade 12 - Senior High School',
       studentId: generatedAnonId,
       academicClusterId: academicClusterId || 'tp-ict',
-      inspirationSource: 'affirmations'
+      inspirationSource: 'affirmations',
+      lrn: lrn || undefined,
+      parentEmergencyPhone: parentEmergencyPhone || undefined
     };
 
     db.upsertStudent(newStudent);

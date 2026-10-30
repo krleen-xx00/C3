@@ -1,7 +1,8 @@
 import React from 'react';
 import { ViewSwitcher, AppViewMode } from './ViewSwitcher';
 import { NightModeToggle } from './NightModeToggle';
-import { GraduationCap } from 'lucide-react';
+import { DeploymentModeSwitcher, DeploymentMode } from './DeploymentModeSwitcher';
+import { GraduationCap, LogOut } from 'lucide-react';
 import { User } from '../types';
 
 interface TopNavbarProps {
@@ -11,6 +12,9 @@ interface TopNavbarProps {
   onToggleNightMode: () => void;
   currentUser?: User;
   onOpenStudentAuth?: () => void;
+  onStudentLogout?: () => void;
+  deploymentMode: DeploymentMode;
+  onSelectDeploymentMode: (mode: DeploymentMode) => void;
 }
 
 export const TopNavbar: React.FC<TopNavbarProps> = ({
@@ -19,7 +23,10 @@ export const TopNavbar: React.FC<TopNavbarProps> = ({
   isDarkMode,
   onToggleNightMode,
   currentUser,
-  onOpenStudentAuth
+  onOpenStudentAuth,
+  onStudentLogout,
+  deploymentMode,
+  onSelectDeploymentMode
 }) => {
   return (
     <header
@@ -34,10 +41,18 @@ export const TopNavbar: React.FC<TopNavbarProps> = ({
         {/* Left: Official School Seal & Title */}
         <button
           type="button"
-          onClick={() => onViewChange('student')}
+          onClick={() => onViewChange(deploymentMode === 'counselor' ? 'counselor' : 'student')}
           className="flex items-center space-x-1.5 sm:space-x-3 cursor-pointer shrink-0 group select-none text-left focus:outline-none"
-          title="Cabiao National Senior High School - Student Wellness Haven"
-          aria-label="Return to Student Wellness Haven"
+          title={
+            deploymentMode === 'counselor'
+              ? 'Cabiao National Senior High School - Guidance & Counseling Portal'
+              : 'Cabiao National Senior High School - Student Wellness Haven'
+          }
+          aria-label={
+            deploymentMode === 'counselor'
+              ? 'Return to Guidance & Counseling Portal'
+              : 'Return to Student Wellness Haven'
+          }
         >
           {/* Logo seal container */}
           <div
@@ -69,7 +84,9 @@ export const TopNavbar: React.FC<TopNavbarProps> = ({
                 isDarkMode ? 'text-[#7FA98E]' : 'text-[#0e2c1f]/65'
               }`}
             >
-              Student Wellness Haven
+              {deploymentMode === 'counselor'
+                ? 'Guidance & Counseling Portal'
+                : 'Student Wellness Haven'}
             </span>
           </div>
 
@@ -87,37 +104,67 @@ export const TopNavbar: React.FC<TopNavbarProps> = ({
                 isDarkMode ? 'text-[#7FA98E]' : 'text-[#0e2c1f]/65'
               }`}
             >
-              Wellness Haven
+              {deploymentMode === 'counselor'
+                ? 'Counseling Portal'
+                : 'Wellness Haven'}
             </span>
           </div>
         </button>
 
-        {/* Right: Quick Controls, ViewSwitcher Tabs + Night Mode Toggle */}
+        {/* Right: Quick Controls, Deployment Mode Switcher, ViewSwitcher Tabs + Night Mode Toggle */}
         <div className="flex items-center space-x-1 sm:space-x-2 shrink-0 max-w-[calc(100vw-3.2rem)] sm:max-w-none overflow-x-auto no-scrollbar py-0.5">
-          {/* Student Account Badge */}
-          {currentUser && onOpenStudentAuth && (
-            <button
-              type="button"
-              onClick={onOpenStudentAuth}
-              className={`hidden md:flex items-center space-x-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold border transition-all cursor-pointer ${
-                isDarkMode
-                  ? 'bg-[#241D19] hover:bg-[#30251F] border-[#3D3026] text-[#E0A868]'
-                  : 'bg-[#FFF9F2] hover:bg-[#FCEFD9] border-[#ECDCC6] text-[#8F5B34]'
-              }`}
-              title="Click to view or edit student school account credentials"
-            >
-              <GraduationCap className="w-3.5 h-3.5 text-amber-500" />
-              <span>{currentUser.name.split(' ')[0]}</span>
-              <span className="opacity-75 font-mono text-[10px]">({currentUser.studentId || 'STU-8921'})</span>
-            </button>
+          {/* Deployment Mode Switcher (All Prototype | Student Portal | Counselor Portal) */}
+          <DeploymentModeSwitcher
+            deploymentMode={deploymentMode}
+            onSelectDeploymentMode={onSelectDeploymentMode}
+            isDarkMode={isDarkMode}
+          />
+
+          {/* Student Account Badge & Sign Out (Only shown in Student & All Prototype modes) */}
+          {deploymentMode !== 'counselor' && currentUser && (
+            <div className="hidden md:flex items-center space-x-1.5">
+              <button
+                type="button"
+                onClick={onOpenStudentAuth}
+                className={`flex items-center space-x-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold border transition-all cursor-pointer ${
+                  isDarkMode
+                    ? 'bg-[#241D19] hover:bg-[#30251F] border-[#3D3026] text-[#E0A868]'
+                    : 'bg-[#FFF9F2] hover:bg-[#FCEFD9] border-[#ECDCC6] text-[#8F5B34]'
+                }`}
+                title="Student School Account Details"
+              >
+                <GraduationCap className="w-3.5 h-3.5 text-amber-500" />
+                <span>{currentUser.name.split(' ')[0]}</span>
+                <span className="opacity-75 font-mono text-[10px]">({currentUser.studentId || 'STU-8921'})</span>
+              </button>
+
+              {onStudentLogout && (
+                <button
+                  type="button"
+                  onClick={onStudentLogout}
+                  className={`p-1 px-2 rounded-full text-[10px] font-bold border transition-all cursor-pointer flex items-center space-x-1 ${
+                    isDarkMode
+                      ? 'bg-[#211614] hover:bg-[#2C1C19] border-[#3E2522] text-[#E57373]'
+                      : 'bg-[#FFF2F2] hover:bg-[#FFE5E5] border-[#F5C6C6] text-[#C62828]'
+                  }`}
+                  title="Sign out of student account"
+                >
+                  <LogOut className="w-3 h-3" />
+                  <span>Sign Out</span>
+                </button>
+              )}
+            </div>
           )}
 
-          {/* View Mode Switcher and Theme Toggle */}
+          {/* View Mode Switcher */}
           <ViewSwitcher
             viewMode={viewMode}
             onViewChange={onViewChange}
             isDarkMode={isDarkMode}
+            deploymentMode={deploymentMode}
           />
+
+          {/* Night Mode Toggle */}
           <NightModeToggle
             isDarkMode={isDarkMode}
             onToggle={onToggleNightMode}

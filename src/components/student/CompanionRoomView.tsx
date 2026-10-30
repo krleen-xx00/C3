@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { User, CompanionId, ChatMessage, MoodLog, RiskTier, AcademicClusterId, UserStressLevel } from '../../types';
 import { COMPANIONS } from '../../data/mockData';
 import { getClusterById } from '../../data/academicTracks';
-import { Send, ArrowLeft, GraduationCap, Heart, Target, RefreshCw, Sparkles, BookOpen, Zap, Wind, Coffee, ShieldAlert } from 'lucide-react';
+import { Send, ArrowLeft, GraduationCap, Heart, Target, RefreshCw, Sparkles, BookOpen, Zap, Wind, Coffee, ShieldAlert, Clock } from 'lucide-react';
 import { TieredResourceCard } from './TieredResourceCard';
 import { classifyRisk } from '../../utils/riskClassifier';
 import { DependencyBreakModal } from './DependencyBreakModal';
@@ -14,6 +14,7 @@ interface CompanionRoomViewProps {
   currentUser: User;
   companionId: CompanionId;
   isDarkMode?: boolean;
+  deploymentMode?: 'all' | 'student' | 'counselor';
   latestMoodLog?: MoodLog;
   onBackToDashboard: () => void;
   onSwitchCompanionRoom: (id: CompanionId) => void;
@@ -86,6 +87,7 @@ export const CompanionRoomView: React.FC<CompanionRoomViewProps> = ({
   currentUser,
   companionId,
   isDarkMode = false,
+  deploymentMode,
   onBackToDashboard,
   onSwitchCompanionRoom,
   onCrisisTriggered,
@@ -112,8 +114,17 @@ export const CompanionRoomView: React.FC<CompanionRoomViewProps> = ({
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   // AI Dependency Engine: continuous student message counter (max 40 per active session)
-  // Persists across browser reloads within the same session. Reset only when a new session starts.
+  // Persists across browser reloads within the same session. Reset only after 24-hour cooldown expires.
   const MAX_SESSION_STUDENT_MESSAGES = 40;
+  const LOCKOUT_COOLDOWN_MS = 24 * 60 * 60 * 1000; // 24-hour mandatory rest cooldown
+
+  const effectiveDeploymentMode = deploymentMode || (() => {
+    try {
+      return (localStorage.getItem('c3-deployment-mode') as 'all' | 'student' | 'counselor') || 'all';
+    } catch {
+      return 'all';
+    }
+  })();
 
   const [sessionId, setSessionId] = useState<string>(() => {
     try {
@@ -131,7 +142,19 @@ export const CompanionRoomView: React.FC<CompanionRoomViewProps> = ({
   const [consecutiveMessages, setConsecutiveMessages] = useState<number>(() => {
     try {
       const saved = localStorage.getItem('c3-consecutive-messages');
-      return saved ? Math.max(0, parseInt(saved, 10) || 0) : 0;
+      const count = saved ? Math.max(0, parseInt(saved, 10) || 0) : 0;
+      const lockoutTimestamp = localStorage.getItem('c3-lockout-timestamp');
+
+      if (lockoutTimestamp && count >= MAX_SESSION_STUDENT_MESSAGES) {
+        const elapsed = Date.now() - parseInt(lockoutTimestamp, 10);
+        if (elapsed >= LOCKOUT_COOLDOWN_MS) {
+          // 24 hours have passed! Cooldown completed, automatically reset counter for a healthy new day
+          localStorage.removeItem('c3-lockout-timestamp');
+          localStorage.setItem('c3-consecutive-messages', '0');
+          return 0;
+        }
+      }
+      return count;
     } catch {
       return 0;
     }
@@ -158,14 +181,19 @@ export const CompanionRoomView: React.FC<CompanionRoomViewProps> = ({
     } catch {}
   }, [messages]);
 
-  // Persist consecutive student message counter in localStorage
+  // Persist consecutive student message counter in localStorage & enforce 24h lockout
   useEffect(() => {
     try {
       localStorage.setItem('c3-consecutive-messages', String(consecutiveMessages));
     } catch {}
-    if (consecutiveMessages >= MAX_SESSION_STUDENT_MESSAGES && !hasShownDependencyModal) {
-      setIsDependencyBreakModalOpen(true);
-      setHasShownDependencyModal(true);
+    if (consecutiveMessages >= MAX_SESSION_STUDENT_MESSAGES) {
+      if (!localStorage.getItem('c3-lockout-timestamp')) {
+        localStorage.setItem('c3-lockout-timestamp', String(Date.now()));
+      }
+      if (!hasShownDependencyModal) {
+        setIsDependencyBreakModalOpen(true);
+        setHasShownDependencyModal(true);
+      }
       setIsDependencyDeescalation(true);
     } else if (consecutiveMessages >= 21) {
       setIsDependencyDeescalation(true);
@@ -311,6 +339,8 @@ export const CompanionRoomView: React.FC<CompanionRoomViewProps> = ({
         anonymizedStudentId: anonId,
         studentRealName: currentUser.name,
         gradeSection: currentUser.gradeSection || 'Grade 12 - Senior High School',
+        parentEmergencyPhone: currentUser.parentEmergencyPhone,
+        lrn: currentUser.lrn,
         companionUsed: companionName,
         flaggedSnippet: text,
         triggerPhrase: localRiskCheck.triggerPhrase || text.substring(0, 50),
@@ -375,6 +405,8 @@ export const CompanionRoomView: React.FC<CompanionRoomViewProps> = ({
           anonymizedStudentId: anonId,
           studentRealName: currentUser.name,
           gradeSection: currentUser.gradeSection || 'Grade 12 - Senior High School',
+          parentEmergencyPhone: currentUser.parentEmergencyPhone,
+          lrn: currentUser.lrn,
           companionUsed: companionName,
           flaggedSnippet: text,
           triggerPhrase: data.triggerPhrase || text.substring(0, 50),
@@ -441,6 +473,7 @@ export const CompanionRoomView: React.FC<CompanionRoomViewProps> = ({
     try {
       localStorage.setItem('c3-active-session-id', newSession);
       localStorage.setItem('c3-consecutive-messages', '0');
+      localStorage.removeItem('c3-lockout-timestamp');
     } catch {}
   };
 
@@ -577,54 +610,59 @@ export const CompanionRoomView: React.FC<CompanionRoomViewProps> = ({
               <span>Offline Tools (No AI)</span>
             </button>
 
-            {/* Quick Demo Limit Triggers & Session Controls */}
-            <div className="flex items-center space-x-1">
-              <button
-                type="button"
-                onClick={() => {
-                  setConsecutiveMessages(21);
-                  setIsDependencyDeescalation(true);
-                }}
-                className={`px-2 py-0.5 rounded-full text-[10px] font-bold border transition-all cursor-pointer ${
-                  isDarkMode
-                    ? 'bg-[#241A14] hover:bg-[#32231A] text-[#DE9B52] border-[#443021]'
-                    : 'bg-[#FFF6E9] hover:bg-[#FDE7C7] text-[#8F5B34] border-[#F2DAC0]'
-                }`}
-                title="Preview wind-down mode (Messages 21-39)"
-              >
-                Test Msg 21
-              </button>
+            {/* Quick Demo Limit Triggers & Session Controls (Hidden in Student Deployment Mode) */}
+            {effectiveDeploymentMode !== 'student' && (
+              <div className="flex items-center space-x-1">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setConsecutiveMessages(21);
+                    setIsDependencyDeescalation(true);
+                  }}
+                  className={`px-2 py-0.5 rounded-full text-[10px] font-bold border transition-all cursor-pointer ${
+                    isDarkMode
+                      ? 'bg-[#241A14] hover:bg-[#32231A] text-[#DE9B52] border-[#443021]'
+                      : 'bg-[#FFF6E9] hover:bg-[#FDE7C7] text-[#8F5B34] border-[#F2DAC0]'
+                  }`}
+                  title="Defense Demo: Preview wind-down mode (Messages 21-39)"
+                >
+                  Test Msg 21
+                </button>
 
-              <button
-                type="button"
-                onClick={() => {
-                  setConsecutiveMessages(MAX_SESSION_STUDENT_MESSAGES);
-                  setIsDependencyDeescalation(true);
-                  setIsDependencyBreakModalOpen(true);
-                }}
-                className={`px-2 py-0.5 rounded-full text-[10px] font-bold border transition-all cursor-pointer ${
-                  isDarkMode
-                    ? 'bg-[#311818] hover:bg-[#422020] text-[#F87171] border-[#5E2B2B]'
-                    : 'bg-[#FEF2F2] hover:bg-[#FEE2E2] text-red-700 border-red-300'
-                }`}
-                title="Preview hard stop lockout (Message 40+)"
-              >
-                Test Msg 40+
-              </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setConsecutiveMessages(MAX_SESSION_STUDENT_MESSAGES);
+                    setIsDependencyDeescalation(true);
+                    setIsDependencyBreakModalOpen(true);
+                    try {
+                      localStorage.setItem('c3-lockout-timestamp', String(Date.now()));
+                    } catch {}
+                  }}
+                  className={`px-2 py-0.5 rounded-full text-[10px] font-bold border transition-all cursor-pointer ${
+                    isDarkMode
+                      ? 'bg-[#311818] hover:bg-[#422020] text-[#F87171] border-[#5E2B2B]'
+                      : 'bg-[#FEF2F2] hover:bg-[#FEE2E2] text-red-700 border-red-300'
+                  }`}
+                  title="Defense Demo: Preview hard stop lockout (Message 40+)"
+                >
+                  Test Msg 40+
+                </button>
 
-              <button
-                type="button"
-                onClick={handleStartNewSession}
-                className={`px-2 py-0.5 rounded-full text-[10px] font-bold border transition-all cursor-pointer ${
-                  isDarkMode
-                    ? 'bg-[#18231C] hover:bg-[#203126] text-[#6FCF97] border-[#2C4837]'
-                    : 'bg-[#EDF8F1] hover:bg-[#DBF1E2] text-[#27AE60] border-[#B7E4C7]'
-                }`}
-                title="Start a new session and reset counter"
-              >
-                New Session
-              </button>
-            </div>
+                <button
+                  type="button"
+                  onClick={handleStartNewSession}
+                  className={`px-2 py-0.5 rounded-full text-[10px] font-bold border transition-all cursor-pointer ${
+                    isDarkMode
+                      ? 'bg-[#18231C] hover:bg-[#203126] text-[#6FCF97] border-[#2C4837]'
+                      : 'bg-[#EDF8F1] hover:bg-[#DBF1E2] text-[#27AE60] border-[#B7E4C7]'
+                  }`}
+                  title="Defense Demo Only: Reset counter for panel evaluation"
+                >
+                  Demo Reset
+                </button>
+              </div>
+            )}
           </div>
         </div>
 
@@ -713,24 +751,6 @@ export const CompanionRoomView: React.FC<CompanionRoomViewProps> = ({
           </div>
 
           <div className="flex items-center space-x-1.5">
-            {/* Wellness Quick Breathing Toggle */}
-            {activeCompanionId === 'casti' && (
-              <button
-                type="button"
-                onClick={() => setShowBreathingTool(!showBreathingTool)}
-                className={`px-2.5 py-1 rounded-full text-xs font-semibold flex items-center space-x-1 transition-all cursor-pointer ${
-                  showBreathingTool
-                    ? 'bg-purple-600 text-white shadow-xs'
-                    : isDarkMode
-                      ? 'bg-[#291F36] text-[#D8C7F0] hover:bg-[#382B4A]'
-                      : 'bg-[#F4EDFA] text-[#6E5496] hover:bg-[#EADBFA]'
-                }`}
-              >
-                <Wind className="w-3.5 h-3.5" />
-                <span className="hidden xs:inline">1-Min Breath</span>
-              </button>
-            )}
-
             {/* Clear conversation */}
             <button
               type="button"
@@ -747,38 +767,6 @@ export const CompanionRoomView: React.FC<CompanionRoomViewProps> = ({
             </button>
           </div>
         </div>
-
-        {/* Optional Interactive Calm Drawer (Breathing) */}
-        <AnimatePresence>
-          {showBreathingTool && activeCompanionId === 'casti' && (
-            <motion.div
-              initial={{ height: 0, opacity: 0 }}
-              animate={{ height: 'auto', opacity: 1 }}
-              exit={{ height: 0, opacity: 0 }}
-              className="overflow-hidden border-b border-purple-500/20 bg-gradient-to-r from-purple-500/10 via-purple-500/5 to-purple-500/10 p-3 text-center flex-shrink-0"
-            >
-              <div className="flex items-center justify-center space-x-4">
-                <motion.div
-                  animate={{
-                    scale: breathingPhase === 'inhale' ? 1.25 : breathingPhase === 'hold' ? 1.25 : 0.9,
-                  }}
-                  transition={{ duration: 4, ease: 'easeInOut' }}
-                  className="w-12 h-12 rounded-full bg-purple-600 text-white font-bold text-[11px] flex items-center justify-center shadow-md uppercase"
-                >
-                  {breathingPhase}
-                </motion.div>
-                <div className="text-left text-xs">
-                  <div className="font-bold text-purple-700 dark:text-purple-300">
-                    {breathingPhase === 'inhale' && 'Breathe In softly through your nose...'}
-                    {breathingPhase === 'hold' && 'Hold gently and relax your shoulders...'}
-                    {breathingPhase === 'exhale' && 'Exhale slowly and release all tension...'}
-                  </div>
-                  <div className="text-[11px] opacity-75">4-4-4 diaphragmatic rhythm</div>
-                </div>
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
 
         {/* Optional Skill Quick Quiz Prompts Drawer */}
         {activeTab === 'skill' && (
@@ -948,27 +936,20 @@ export const CompanionRoomView: React.FC<CompanionRoomViewProps> = ({
               &ldquo;Take a Breather! You&apos;ve reached the 40-message session limit. Remember to rest, hydrate, or talk to someone offline.&rdquo;
             </p>
 
+            {/* 24-Hour Mandatory Digital Wellbeing Cooldown Notice */}
+            <div className={`p-3 rounded-2xl max-w-md mx-auto text-xs border ${
+              isDarkMode ? 'bg-[#15100E] border-[#382B21] text-[#A8988B]' : 'bg-[#FFF7ED] border-[#FED7AA] text-[#7C2D12]'
+            }`}>
+              <div className="font-bold flex items-center justify-center space-x-1.5 text-amber-600 dark:text-amber-400">
+                <Clock className="w-3.5 h-3.5" />
+                <span>24-Hour Digital Wellbeing Cooldown in Effect</span>
+              </div>
+              <p className="mt-1 text-[11px] leading-relaxed">
+                To prevent digital dependency and encourage real-world balance, AI companion chats are paused for 24 hours. Your offline self-reflection and guidance tools remain available below.
+              </p>
+            </div>
+
             <div className="flex items-center justify-center gap-2.5 flex-wrap pt-1">
-              {/* [Start New Session] button */}
-              <button
-                type="button"
-                onClick={handleStartNewSession}
-                className="px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold bg-emerald-600 hover:bg-emerald-500 text-white transition-all flex items-center space-x-2 cursor-pointer shadow-md"
-              >
-                <Sparkles className="w-4 h-4" />
-                <span>Start New Session</span>
-              </button>
-
-              {/* [1-Minute Breathing Exercise] button */}
-              <button
-                type="button"
-                onClick={() => setIsDependencyBreakModalOpen(true)}
-                className="px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold bg-purple-600 hover:bg-purple-500 text-white transition-all flex items-center space-x-2 cursor-pointer shadow-md"
-              >
-                <Wind className="w-4 h-4" />
-                <span>1-Minute Breathing Exercise</span>
-              </button>
-
               {/* [Self-Help & Offline Tools] button */}
               <button
                 type="button"
@@ -976,10 +957,10 @@ export const CompanionRoomView: React.FC<CompanionRoomViewProps> = ({
                 className="px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold bg-amber-500 hover:bg-amber-400 text-stone-950 transition-all flex items-center space-x-2 cursor-pointer shadow-md"
               >
                 <BookOpen className="w-4 h-4" />
-                <span>Explore Offline Tools</span>
+                <span>Explore Offline Tools (No AI)</span>
               </button>
 
-              {/* Option to return later */}
+              {/* Option to return to Home Hub */}
               <button
                 type="button"
                 onClick={onBackToDashboard}
@@ -987,7 +968,7 @@ export const CompanionRoomView: React.FC<CompanionRoomViewProps> = ({
                   isDarkMode ? 'border-[#3D332B] text-[#D0C0B0] hover:bg-[#2C241F]' : 'border-[#E9DFD2] text-[#6D5A50] hover:bg-[#F8F3ED]'
                 }`}
               >
-                <span>Return Later / Back to Home Hub</span>
+                <span>Return to Home Hub</span>
               </button>
             </div>
           </div>
@@ -1039,6 +1020,10 @@ export const CompanionRoomView: React.FC<CompanionRoomViewProps> = ({
         onBackToHomeHub={() => {
           setIsDependencyBreakModalOpen(false);
           onBackToDashboard();
+        }}
+        onOpenOfflineTools={() => {
+          setIsDependencyBreakModalOpen(false);
+          setIsOfflineToolsOpen(true);
         }}
         messageCount={consecutiveMessages}
         activeMinutes={activeMinutes}

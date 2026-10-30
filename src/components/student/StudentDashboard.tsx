@@ -3,13 +3,12 @@ import { User, CompanionId, MoodLog, InspirationSource, RiskTier, AcademicCluste
 import { motion, AnimatePresence } from 'motion/react';
 import { Sparkles, ArrowRight, Settings, UserPlus, BookOpen } from 'lucide-react';
 import { DailyInspirationCard } from './DailyInspirationCard';
-import { InspirationSettingsModal } from './InspirationSettingsModal';
 import { PersonalizationPanel } from './PersonalizationPanel';
 import { TieredResourceCard } from './TieredResourceCard';
 import { OfflineToolsModal } from './OfflineToolsModal';
 import { classifyRisk } from '../../utils/riskClassifier';
-import { SECULAR_AFFIRMATIONS, SECULAR_DAILY_WISDOM } from '../../data/affirmationsData';
 import { getClusterById } from '../../data/academicTracks';
+import { getDailyInspiration } from '../../data/affirmationsData';
 
 interface StudentDashboardProps {
   currentUser: User;
@@ -187,7 +186,6 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
     return (saved as InspirationSource) || 'affirmations';
   });
 
-  const [isSettingsOpen, setIsSettingsOpen] = useState<boolean>(false);
   const [isOfflineToolsOpen, setIsOfflineToolsOpen] = useState<boolean>(false);
   const [checkInRiskTier, setCheckInRiskTier] = useState<RiskTier | null>(null);
 
@@ -207,11 +205,6 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
     localStorage.setItem(`c3-inspiration-${currentUser.id}`, source);
     localStorage.setItem('c3-inspiration-source', source);
   };
-
-  // Daily encouragement scripture or secular wisdom
-  const dailyIndex = new Date().getDate() % DAILY_BIBLE_VERSES.length;
-  const currentDailyVerse = DAILY_BIBLE_VERSES[dailyIndex];
-  const currentDailyWisdom = SECULAR_DAILY_WISDOM[dailyIndex % SECULAR_DAILY_WISDOM.length];
 
   // Determine time-of-day greeting
   const getGreetingData = () => {
@@ -380,15 +373,9 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
             </>
           )}
           <span className="text-[10px] opacity-40">•</span>
-          <button
-            type="button"
-            onClick={() => setIsSettingsOpen(true)}
-            className="flex items-center space-x-1 text-amber-600 dark:text-amber-300 hover:underline font-semibold cursor-pointer"
-            title="Inspiration Settings"
-          >
-            <Settings className="w-3 h-3" />
-            <span>{inspirationSource === 'affirmations' ? 'Affirmations' : 'Scripture'}</span>
-          </button>
+          <span className="text-[11px] font-semibold text-amber-600 dark:text-amber-400">
+            Daily Affirmation &amp; Scripture
+          </span>
         </div>
 
         {/* Big expressive greeting heading */}
@@ -414,25 +401,13 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
             : 'bg-[#FFFDF9]/95 backdrop-blur-md border-[#F2E8DC] shadow-[0_8px_32px_rgba(180,140,110,0.07)]'
         }`}>
           
-          <div className="flex items-center justify-between gap-2">
-            <div className="space-y-1 text-left">
-              <h2 className="text-base sm:text-xl font-semibold tracking-tight">
-                How does your heart feel right now?
-              </h2>
-              <p className={`text-xs sm:text-sm ${isDarkMode ? 'text-[#A39486]' : 'text-[#857070]'}`}>
-                There are no wrong answers. Choose whatever feels closest today.
-              </p>
-            </div>
-
-            {/* Quick Inspiration Source Switcher Button */}
-            <button
-              type="button"
-              onClick={() => setIsSettingsOpen(true)}
-              className="p-2 rounded-xl border text-xs font-semibold flex items-center space-x-1 hover:scale-105 transition-all text-slate-500 hover:text-amber-600 dark:text-slate-400 dark:hover:text-amber-300 bg-white/50 dark:bg-black/20 cursor-pointer shrink-0"
-              title="Daily inspiration source settings"
-            >
-              <Settings className="w-3.5 h-3.5" />
-            </button>
+          <div className="space-y-1 text-left">
+            <h2 className="text-base sm:text-xl font-semibold tracking-tight">
+              How does your heart feel right now?
+            </h2>
+            <p className={`text-xs sm:text-sm ${isDarkMode ? 'text-[#A39486]' : 'text-[#857070]'}`}>
+              There are no wrong answers. Choose whatever feels closest today.
+            </p>
           </div>
 
           {/* Emoji Mood Selectors with Soft Colored Circle Backgrounds */}
@@ -577,8 +552,6 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
           {/* Embedded Affirmation for Your Heart Subsection */}
           <DailyInspirationCard
             inspirationSource={inspirationSource}
-            currentMood={selectedMood?.category || 'quiet'}
-            onOpenSettings={() => setIsSettingsOpen(true)}
             isDarkMode={isDarkMode}
             embedded={true}
           />
@@ -616,8 +589,9 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
 
             <button
               type="button"
-              onClick={() => setIsSettingsOpen(true)}
+              onClick={() => handleUpdateInspirationSource(inspirationSource === 'affirmations' ? 'scripture' : 'affirmations')}
               className="text-[11px] font-medium text-amber-700/80 dark:text-amber-300/80 hover:underline cursor-pointer"
+              title="Click to switch between Daily Affirmations and Scripture"
             >
               Active: {inspirationSource === 'affirmations' ? '✨ Affirmations' : '📖 Scripture'}
             </button>
@@ -716,35 +690,40 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
       </section>
 
       {/* 5. Gentle Daily Encouragement Footer (Scripture or Secular Affirmation) */}
-      <footer className={`text-center pt-8 pb-4 border-t ${
-        isDarkMode ? 'border-[#332B25]' : 'border-[#EBE2D5]'
-      }`}>
-        <p className={`text-xs sm:text-sm font-medium max-w-lg mx-auto leading-relaxed ${
-          isDarkMode ? 'text-[#B0A294]' : 'text-[#7D6868]'
-        }`}>
-          "{inspirationSource === 'affirmations' ? currentDailyWisdom.quote : currentDailyVerse.verse}"
-        </p>
-        <p className={`text-[11px] mt-1.5 font-semibold tracking-wide ${
-          isDarkMode ? 'text-[#8C7B6E]' : 'text-[#967C7C]'
-        }`}>
-          — {inspirationSource === 'affirmations' ? currentDailyWisdom.source : currentDailyVerse.ref}
-        </p>
+      {(() => {
+        const footerItem = getDailyInspiration(inspirationSource);
+        return (
+          <footer className={`text-center pt-8 pb-4 border-t ${
+            isDarkMode ? 'border-[#332B25]' : 'border-[#EBE2D5]'
+          }`}>
+            <p className={`text-xs sm:text-sm font-medium max-w-lg mx-auto leading-relaxed ${
+              isDarkMode ? 'text-[#B0A294]' : 'text-[#7D6868]'
+            }`}>
+              "{footerItem.text}"
+            </p>
+            <p className={`text-[11px] mt-1.5 font-semibold tracking-wide ${
+              isDarkMode ? 'text-[#8C7B6E]' : 'text-[#967C7C]'
+            }`}>
+              — {footerItem.referenceOrTheme}
+            </p>
 
-        {onOpenAbout && (
-          <button
-            type="button"
-            onClick={onOpenAbout}
-            className={`mt-6 inline-flex items-center space-x-2 px-4 py-2 rounded-full text-xs font-semibold transition-all duration-200 cursor-pointer backdrop-blur-xs border shadow-2xs hover:-translate-y-0.5 ${
-              isDarkMode
-                ? 'text-[#C9BAAB] bg-[#201B17]/60 border-[#3A322B] hover:bg-[#2A231D] hover:border-[#4A4037]'
-                : 'text-[#7D665B] bg-white/70 border-[#EFE5D8] hover:bg-white hover:border-[#E0D4C4]'
-            }`}
-          >
-            <span>✦</span>
-            <span>About the Research Team</span>
-          </button>
-        )}
-      </footer>
+            {onOpenAbout && (
+              <button
+                type="button"
+                onClick={onOpenAbout}
+                className={`mt-6 inline-flex items-center space-x-2 px-4 py-2 rounded-full text-xs font-semibold transition-all duration-200 cursor-pointer backdrop-blur-xs border shadow-2xs hover:-translate-y-0.5 ${
+                  isDarkMode
+                    ? 'text-[#C9BAAB] bg-[#201B17]/60 border-[#3A322B] hover:bg-[#2A231D] hover:border-[#4A4037]'
+                    : 'text-[#7D665B] bg-white/70 border-[#EFE5D8] hover:bg-white hover:border-[#E0D4C4]'
+                }`}
+              >
+                <span>✦</span>
+                <span>About the Research Team</span>
+              </button>
+            )}
+          </footer>
+        );
+      })()}
 
       {/* Personalization Panel */}
       <PersonalizationPanel
@@ -759,15 +738,6 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
         onChangeInspirationSource={handleUpdateInspirationSource}
         preferredName={preferredName}
         onChangePreferredName={onChangePreferredName}
-      />
-
-      {/* Settings Modal */}
-      <InspirationSettingsModal
-        isOpen={isSettingsOpen}
-        onClose={() => setIsSettingsOpen(false)}
-        inspirationSource={inspirationSource}
-        onChangeInspirationSource={handleUpdateInspirationSource}
-        isDarkMode={isDarkMode}
       />
 
       {/* Offline Tools Modal */}

@@ -51,6 +51,7 @@ import {
 import {
   FlaggedRiskItem,
   getFlaggedRiskLogs,
+  saveFlaggedRiskLogs,
   markRiskLogReviewed,
   dismissRiskLog,
   escalateRiskLog,
@@ -215,13 +216,44 @@ export const CounselorDashboard: React.FC<CounselorDashboardProps> = ({ isDarkMo
   const [alerts, setAlerts] = useState<CounselorAlert[]>(INITIAL_COUNSELOR_ALERTS);
   const [selectedChartRange, setSelectedChartRange] = useState<'weekly' | 'daily'>('weekly');
 
-  // Sync flagged risks on mount
+  // Sync flagged risks on mount, on cross-tab storage, and on internal app updates
   useEffect(() => {
-    const handleStorageChange = () => {
+    const handleSync = () => {
       setFlaggedRiskLogs(getFlaggedRiskLogs());
     };
-    window.addEventListener('storage', handleStorageChange);
-    return () => window.removeEventListener('storage', handleStorageChange);
+
+    // Immediate sync on component mount / view switch
+    handleSync();
+
+    // Cross-tab storage updates
+    window.addEventListener('storage', handleSync);
+    // Same-tab student mode flagging updates
+    window.addEventListener('c3-flagged-risk-updated', handleSync);
+    // Focus event when switching back into the tab/view
+    window.addEventListener('focus', handleSync);
+
+    // Also attempt fetching from server API to merge any persisted logs
+    fetch('/api/flagged-risks')
+      .then(res => res.json())
+      .then(data => {
+        if (data?.success && Array.isArray(data.logs) && data.logs.length > 0) {
+          const local = getFlaggedRiskLogs();
+          const localIds = new Set(local.map(l => l.id));
+          const toAdd = data.logs.filter((l: any) => !localIds.has(l.id));
+          if (toAdd.length > 0) {
+            const merged = [...toAdd, ...local];
+            saveFlaggedRiskLogs(merged);
+            setFlaggedRiskLogs(merged);
+          }
+        }
+      })
+      .catch(() => {});
+
+    return () => {
+      window.removeEventListener('storage', handleSync);
+      window.removeEventListener('c3-flagged-risk-updated', handleSync);
+      window.removeEventListener('focus', handleSync);
+    };
   }, []);
 
   const handleLoginSuccess = (counselor: CounselorUser) => {
