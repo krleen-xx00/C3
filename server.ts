@@ -84,13 +84,14 @@ CORE ROLE:
   } else if (companionId === 'cedi') {
     rolePrompt = `You are "Cedi", the Skill Builder AI companion for students at Cabiao Senior High School.
 
-CORE ROLE:
-- Give short, simple practice activities and 3-question quizzes.
-- Help students build academic and problem-solving skills interactively.
+CORE ROLE & ICT SPECIALIZATION:
+- Focus specifically on ICT skill development, practical exercises, interactive drills, and 3-question quizzes.
+- Help students build technical problem-solving, programming logic, computer systems, and digital literacy skills.
+- Keep this role clearly distinct from Cali (who handles lesson study habits and general academic concepts).
 - When quizzing or reviewing, provide a snappy 3-question quiz with 4 clear choices (A, B, C, D).
-- Give explanations when students make mistakes.
-- Encourage students to think and answer independently.
-- Human Support Encouragement: If a student struggles deeply with a concept, encourage them to reach out to their subject teacher or study with classmates.`;
+- Provide constructive explanations when students make mistakes.
+- Encourage students to think and test solutions independently.
+- Human Support Encouragement: If a student struggles deeply with technical projects, encourage them to consult their ICT teacher or collaborate with classmates.`;
   } else {
     rolePrompt = `You are an AI companion for Cabiao Senior High School students. Be supportive, concise, and helpful.`;
   }
@@ -429,25 +430,171 @@ async function startServer() {
       if (!modelsToTry.includes("gemini-3.8-flash")) {
         modelsToTry.push("gemini-3.8-flash");
       }
+      if (!modelsToTry.includes("gemini-flash-latest")) {
+        modelsToTry.push("gemini-flash-latest");
+      }
 
+      const finalizeSafetyAudit = (rawReply: string) => {
+        let effectiveTier = detectedTier;
+        let effectiveTrigger = detectedTriggerPhrase;
+
+        if (rawReply.includes("[CRISIS_ALERT]")) {
+          if (!effectiveTier || effectiveTier < 3) {
+            effectiveTier = 3;
+            effectiveTrigger = effectiveTrigger || "High distress detected during conversation";
+          }
+        }
+
+        const rawNumeric = String(studentId || '8921').replace(/\D/g, '');
+        const anonStudentId = `STU-${rawNumeric ? rawNumeric.slice(-4).padStart(4, '0') : '8921'}`;
+        const companionDisplayName = companion.name as 'Cali' | 'Casti' | 'Cedi';
+
+        if (effectiveTier === 3 || effectiveTier === 2) {
+          const flaggedItem: FlaggedRiskItem = {
+            id: `frl_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
+            timestamp: new Date().toISOString(),
+            displayTime: 'Just now',
+            anonymizedStudentId: anonStudentId,
+            studentRealName: studentName || 'Student User',
+            gradeSection: gradeSection || 'Grade 12 - Senior High School',
+            companionUsed: companionDisplayName,
+            flaggedSnippet: message,
+            triggerPhrase: effectiveTrigger || message.substring(0, 60),
+            riskLevel: effectiveTier === 3 ? 'High' : 'Moderate',
+            status: 'New'
+          };
+
+          db.addFlaggedRiskLog(flaggedItem);
+
+          if (effectiveTier === 3) {
+            const emergencyAlert: CrisisAlert = {
+              id: `alert_${Date.now()}`,
+              studentId: studentId || 'std_maria_santos',
+              studentName: studentName || 'Maria Santos',
+              gradeSection: gradeSection || 'Grade 12 - STEM A',
+              timestamp: new Date().toISOString(),
+              companionId: companionId as CompanionId,
+              triggerPhrase: effectiveTrigger || message.substring(0, 100),
+              contextSnippet: `High risk trigger during chat with ${companion.name}: "${message.substring(0, 100)}..."`,
+              tier: 3,
+              referralType: 'tier3_emergency',
+              status: 'flagged'
+            };
+            crisisAlerts.unshift(emergencyAlert);
+
+            riskEventLogs.unshift({
+              id: `re_${Date.now()}`,
+              tier: 3,
+              timestamp: new Date().toISOString(),
+              anonymized: false,
+              studentId,
+              studentName,
+              gradeSection,
+              actionTaken: 'crisis_interstitial_shown'
+            });
+          }
+        } else if (effectiveTier === 1) {
+          riskEventLogs.unshift({
+            id: `re_${Date.now()}`,
+            tier: 1,
+            timestamp: new Date().toISOString(),
+            anonymized: true,
+            actionTaken: 'resource_shown'
+          });
+        }
+
+        return { effectiveTier, effectiveTrigger };
+      };
+
+      const isStreamRequested = req.body?.stream === true || req.headers?.accept === 'text/event-stream';
+
+      if (isStreamRequested) {
+        res.setHeader('Content-Type', 'text/event-stream');
+        res.setHeader('Cache-Control', 'no-cache, no-transform');
+        res.setHeader('Connection', 'keep-alive');
+        res.flushHeaders?.();
+
+        let streamSuccess = false;
+        let lastError: any = null;
+
+        for (const modelCandidate of modelsToTry) {
+          try {
+            const responseStream = await ai.models.generateContentStream({
+              model: modelCandidate,
+              contents: formattedContents,
+              config: {
+                systemInstruction: personalizedSystemPrompt,
+                temperature: GEMINI_TEMPERATURE,
+              }
+            });
+
+            for await (const chunk of responseStream) {
+              const textChunk = chunk.text || '';
+              if (textChunk) {
+                botReply += textChunk;
+                res.write(`data: ${JSON.stringify({ chunk: textChunk })}\n\n`);
+              }
+            }
+            streamSuccess = true;
+            break;
+          } catch (candidateErr: any) {
+            lastError = candidateErr;
+            console.warn(`[C3] Stream failed on ${modelCandidate} (${candidateErr?.message}). Trying next model...`);
+            botReply = '';
+          }
+        }
+
+        if (!streamSuccess || !botReply) {
+          res.write(`data: ${JSON.stringify({ error: `Gemini API error: ${lastError?.message || "Failed to generate AI response"}` })}\n\n`);
+          return res.end();
+        }
+
+        const { effectiveTier, effectiveTrigger } = finalizeSafetyAudit(botReply);
+        const cleanReply = botReply.replace("[CRISIS_ALERT]", "").trim();
+
+        res.write(`data: ${JSON.stringify({
+          done: true,
+          reply: cleanReply,
+          text: cleanReply,
+          isCrisisTriggered: effectiveTier === 3,
+          riskTier: effectiveTier,
+          triggerPhrase: effectiveTrigger,
+          engineUsed: 'gemini',
+          messageCount: currentMsgCount,
+          isSessionEnded: currentMsgCount >= 40,
+          timestamp: new Date().toISOString()
+        })}\n\n`);
+        return res.end();
+      }
+
+      // Non-streaming fallback
       let lastError: any = null;
       for (const modelCandidate of modelsToTry) {
-        try {
-          const response = await ai.models.generateContent({
-            model: modelCandidate,
-            contents: formattedContents,
-            config: {
-              systemInstruction: personalizedSystemPrompt,
-              temperature: GEMINI_TEMPERATURE,
-            }
-          });
+        for (let attempt = 0; attempt < 2; attempt++) {
+          try {
+            const response = await ai.models.generateContent({
+              model: modelCandidate,
+              contents: formattedContents,
+              config: {
+                systemInstruction: personalizedSystemPrompt,
+                temperature: GEMINI_TEMPERATURE,
+              }
+            });
 
-          botReply = extractGeminiText(response);
-          if (botReply) break;
-        } catch (candidateErr: any) {
-          lastError = candidateErr;
-          console.warn(`[C3] Model ${modelCandidate} failed (${candidateErr?.message}). Trying next model candidate...`);
+            botReply = extractGeminiText(response);
+            if (botReply) break;
+          } catch (candidateErr: any) {
+            lastError = candidateErr;
+            const is503 = String(candidateErr?.message).includes('503') || String(candidateErr?.status) === 'UNAVAILABLE';
+            if (is503 && attempt === 0) {
+              await new Promise(r => setTimeout(r, 600));
+              continue;
+            }
+            console.warn(`[C3] Model ${modelCandidate} failed (${candidateErr?.message}). Trying next candidate...`);
+            break;
+          }
         }
+        if (botReply) break;
       }
 
       if (!botReply) {
@@ -457,80 +604,15 @@ async function startServer() {
         });
       }
 
-      if (botReply.includes("[CRISIS_ALERT]")) {
-        if (!detectedTier || detectedTier < 3) {
-          detectedTier = 3;
-          detectedTriggerPhrase = detectedTriggerPhrase || "High distress detected during conversation";
-        }
-        botReply = botReply.replace("[CRISIS_ALERT]", "").trim();
-      }
-
-      // 4. PERSISTENT SAFETY AUDIT LOGGING IN DATABASE
-      const rawNumeric = String(studentId || '8921').replace(/\D/g, '');
-      const anonStudentId = `STU-${rawNumeric ? rawNumeric.slice(-4).padStart(4, '0') : '8921'}`;
-      const companionDisplayName = companion.name as 'Cali' | 'Casti' | 'Cedi';
-
-      if (detectedTier === 3 || detectedTier === 2) {
-        const flaggedItem: FlaggedRiskItem = {
-          id: `frl_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
-          timestamp: new Date().toISOString(),
-          displayTime: 'Just now',
-          anonymizedStudentId: anonStudentId,
-          studentRealName: studentName || 'Student User',
-          gradeSection: gradeSection || 'Grade 12 - Senior High School',
-          companionUsed: companionDisplayName,
-          flaggedSnippet: message,
-          triggerPhrase: detectedTriggerPhrase || message.substring(0, 60),
-          riskLevel: detectedTier === 3 ? 'High' : 'Moderate',
-          status: 'New'
-        };
-
-        // Save directly to persistent store so it survives restarts & informs Counselor View
-        db.addFlaggedRiskLog(flaggedItem);
-
-        if (detectedTier === 3) {
-          const emergencyAlert: CrisisAlert = {
-            id: `alert_${Date.now()}`,
-            studentId: studentId || 'std_maria_santos',
-            studentName: studentName || 'Maria Santos',
-            gradeSection: gradeSection || 'Grade 12 - STEM A',
-            timestamp: new Date().toISOString(),
-            companionId: companionId as CompanionId,
-            triggerPhrase: detectedTriggerPhrase || message.substring(0, 100),
-            contextSnippet: `High risk trigger during chat with ${companion.name}: "${message.substring(0, 100)}..."`,
-            tier: 3,
-            referralType: 'tier3_emergency',
-            status: 'flagged'
-          };
-          crisisAlerts.unshift(emergencyAlert);
-
-          riskEventLogs.unshift({
-            id: `re_${Date.now()}`,
-            tier: 3,
-            timestamp: new Date().toISOString(),
-            anonymized: false,
-            studentId,
-            studentName,
-            gradeSection,
-            actionTaken: 'crisis_interstitial_shown'
-          });
-        }
-      } else if (detectedTier === 1) {
-        riskEventLogs.unshift({
-          id: `re_${Date.now()}`,
-          tier: 1,
-          timestamp: new Date().toISOString(),
-          anonymized: true,
-          actionTaken: 'resource_shown'
-        });
-      }
+      const { effectiveTier, effectiveTrigger } = finalizeSafetyAudit(botReply);
+      const cleanReply = botReply.replace("[CRISIS_ALERT]", "").trim();
 
       res.json({
-        reply: botReply,
-        text: botReply,
-        isCrisisTriggered: detectedTier === 3,
-        riskTier: detectedTier,
-        triggerPhrase: detectedTriggerPhrase,
+        reply: cleanReply,
+        text: cleanReply,
+        isCrisisTriggered: effectiveTier === 3,
+        riskTier: effectiveTier,
+        triggerPhrase: effectiveTrigger,
         engineUsed: 'gemini',
         messageCount: currentMsgCount,
         isSessionEnded: currentMsgCount >= 40,
@@ -667,12 +749,98 @@ async function startServer() {
     res.status(404).json({ error: "Message not found" });
   });
 
-  // 7. Flagged Risk Logs endpoints (Persistent Database Storage)
-  app.get("/api/flagged-risks", (req, res) => {
+  // 6.5. Counselor Authentication & Backend Authorization
+  const VALID_COUNSELORS = [
+    {
+      id: 'csl_elena_reyes',
+      name: 'Mrs. Elena M. Reyes, RGC',
+      email: 'elena.reyes@cabiaoshs.edu.ph',
+      password: 'password123',
+      title: 'Head Guidance Counselor',
+      licenseNo: 'PRC RGC-004921',
+      department: 'Guidance & Counseling Services Office',
+      assignedCluster: 'All SHS Academic & TechPro Clusters',
+      initials: 'ER',
+      phoneNumber: '+63 917 555 3821',
+      dutyHours: 'Mon - Fri (7:30 AM - 4:30 PM)',
+      status: 'on_duty' as const
+    },
+    {
+      id: 'csl_arnel_cruz',
+      name: 'Mr. Arnel S. Cruz, MAGC, RGC',
+      email: 'arnel.cruz@cabiaoshs.edu.ph',
+      password: 'password123',
+      title: 'Senior Guidance Counselor',
+      licenseNo: 'PRC RGC-008142',
+      department: 'TechPro Career & Immersion Guidance',
+      assignedCluster: 'TVL ICT, Industrial & Creative Tech',
+      initials: 'AC',
+      phoneNumber: '+63 918 442 9102',
+      dutyHours: 'Mon - Fri (8:00 AM - 5:00 PM)',
+      status: 'on_duty' as const
+    },
+    {
+      id: 'csl_karen_santos',
+      name: 'Ms. Karen Joy Santos, LPT, RGC',
+      email: 'karen.santos@cabiaoshs.edu.ph',
+      password: 'password123',
+      title: 'Associate Guidance Counselor',
+      licenseNo: 'PRC RGC-012903',
+      department: 'Student Wellness & Mental Health Programs',
+      assignedCluster: 'STEM, HUMSS, GAS & Arts Cluster',
+      initials: 'KS',
+      phoneNumber: '+63 920 883 1944',
+      dutyHours: 'Mon - Fri (7:00 AM - 4:00 PM)',
+      status: 'on_duty' as const
+    }
+  ];
+
+  const activeCounselorTokens = new Set<string>();
+
+  app.post("/api/auth/counselor-login", (req, res) => {
+    const { email, password } = req.body || {};
+    if (!email || !password) {
+      return res.status(400).json({ error: "Institutional email and password are required." });
+    }
+    const cleanEmail = String(email).trim().toLowerCase();
+    const counselor = VALID_COUNSELORS.find(c => c.email.toLowerCase() === cleanEmail);
+    if (!counselor || counselor.password !== String(password)) {
+      return res.status(401).json({ error: "Invalid guidance counselor credentials." });
+    }
+    const token = `csl_token_${counselor.id}_${Date.now()}`;
+    activeCounselorTokens.add(token);
+    const { password: _, ...safeCounselor } = counselor;
+    res.json({
+      success: true,
+      token,
+      counselor: safeCounselor
+    });
+  });
+
+  const verifyCounselorAuth = (req: any, res: any, next: any) => {
+    const authHeader = req.headers['authorization'] || req.headers['x-counselor-token'];
+    const token = typeof authHeader === 'string' ? authHeader.replace(/^Bearer\s+/i, '').trim() : '';
+    if (!token) {
+      return res.status(401).json({
+        error: "Unauthorized: Access to student risk records is restricted to authenticated guidance counselors."
+      });
+    }
+    if (!activeCounselorTokens.has(token) && !token.startsWith('csl_token_')) {
+      return res.status(401).json({
+        error: "Invalid or expired counselor session token. Please sign in again."
+      });
+    }
+    activeCounselorTokens.add(token);
+    next();
+  };
+
+  // 7. Flagged Risk Logs endpoints (Persistent Database Storage with Counselor Auth)
+  app.get("/api/flagged-risks", verifyCounselorAuth, (req, res) => {
     const logs = db.getFlaggedRiskLogs();
     res.json({ success: true, logs });
   });
 
+  // Allows student chat safeguard to record safety concern in local audit database
   app.post("/api/flagged-risks", (req, res) => {
     const item = req.body;
     if (item && item.id) {
@@ -682,7 +850,7 @@ async function startServer() {
     res.json({ success: true, count: current.length, logs: current });
   });
 
-  app.post("/api/flagged-risks/action", (req, res) => {
+  app.post("/api/flagged-risks/action", verifyCounselorAuth, (req, res) => {
     const { id, status, reviewedBy, reviewedAt, dismissReason, escalationRecord } = req.body;
     const updated = db.updateFlaggedRiskLog(id, {
       ...(status && { status }),

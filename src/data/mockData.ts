@@ -21,12 +21,12 @@ YOUR ROLE:
 - Strictly NOT a therapist, psychologist, doctor, or counselor. Must never diagnose mental-health conditions.
 - Encourages students to talk with a trusted person, school counselor, teacher, parent/guardian.
 - Avoids encouraging emotional dependence on the AI.`,
-    initialGreeting: 'Kumusta? I am Casti ☁️, your Wellness Listener. Take a soft breath... you are in a safe, judgment-free space. If today feels heavy or stressful, you can share it here. Would you like to tell me what is on your heart, or should we try a quick calming breath together?',
+    initialGreeting: 'Kumusta? I am Casti ☁️, your Wellness Listener. Take a moment to pause... you are in a safe, judgment-free space. If today feels heavy or stressful, you can share it here. Would you like to tell me what is on your heart, or try a quiet reflection together?',
     samplePrompts: [
       'I feel overwhelmed by all the school deadlines and could use someone to listen.',
       'How do I calm down before my summative exam?',
       'I feel stressed balancing senior high tasks and personal life.',
-      'Walk me through a quick breathing exercise.'
+      'Guide me through a 5-4-3-2-1 sensory grounding exercise.'
     ]
   },
   {
@@ -158,7 +158,7 @@ export const INITIAL_MOOD_LOGS: MoodLog[] = [
     date: '2026-07-26',
     moodType: 'calm',
     moodScore: 7,
-    note: 'Had a good chat with Casti and did breathing exercises. Took a real break from the computer lab.',
+    note: 'Had a good chat with Casti and did sensory grounding. Took a real break from the computer lab.',
     factors: ['Friends', 'Self-care'],
     timestamp: '2026-07-26T14:20:00Z'
   },

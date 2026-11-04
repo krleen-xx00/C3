@@ -19,22 +19,9 @@ export const CrisisModal: React.FC<CrisisModalProps> = ({
   isTier3Emergency = false,
   onContactGuidance
 }) => {
-  const [breathingStep, setBreathingStep] = useState<number>(0);
-  const [isBreathingActive, setIsBreathingActive] = useState<boolean>(false);
   const [guidanceRequested, setGuidanceRequested] = useState<boolean>(false);
 
   if (!isOpen) return null;
-
-  const startBreathing = () => {
-    setIsBreathingActive(true);
-    setBreathingStep(1); // Breathe in (4s)
-    setTimeout(() => setBreathingStep(2), 4000); // Hold (4s)
-    setTimeout(() => setBreathingStep(3), 8000); // Exhale (4s)
-    setTimeout(() => {
-      setIsBreathingActive(false);
-      setBreathingStep(0);
-    }, 12000);
-  };
 
   const handleTalkToGuidance = async () => {
     setGuidanceRequested(true);
@@ -235,36 +222,7 @@ export const CrisisModal: React.FC<CrisisModalProps> = ({
           )}
         </div>
 
-        {/* Grounding Breath (Optional) */}
-        {!isTier3Emergency && (
-          <div className={`p-3.5 rounded-2xl border text-center space-y-2 shadow-2xs ${
-            isDarkMode ? 'bg-[#1C1815] border-[#36302B]' : 'bg-white border-[#EDE5DA]'
-          }`}>
-            {isBreathingActive ? (
-              <div className="py-1">
-                <div className={`w-10 h-10 mx-auto rounded-full flex items-center justify-center mb-1 ${
-                  isDarkMode ? 'bg-[#31283B]' : 'bg-[#EDE8F5]'
-                }`}>
-                  <Sparkles className="w-4 h-4 text-[#A58ECC]" />
-                </div>
-                <p className={`text-xs font-medium ${isDarkMode ? 'text-[#C5B4E3]' : 'text-[#6B5294]'}`}>
-                  {breathingStep === 1 && 'Breathe In Gently...'}
-                  {breathingStep === 2 && 'Hold Softly...'}
-                  {breathingStep === 3 && 'Exhale Slowly...'}
-                </p>
-              </div>
-            ) : (
-              <button
-                type="button"
-                onClick={startBreathing}
-                className="text-xs font-medium text-indigo-600 dark:text-indigo-400 hover:underline flex items-center justify-center space-x-1.5 mx-auto"
-              >
-                <Sparkles className="w-3.5 h-3.5" />
-                <span>Try a 12-Second Calm Breath</span>
-              </button>
-            )}
-          </div>
-        )}
+
 
       </motion.div>
     </div>

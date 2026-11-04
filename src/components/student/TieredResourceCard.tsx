@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Shield, Sparkles, Wind, BookOpen, HeartHandshake, CheckCircle, X, ChevronDown, ChevronUp, Clock, AlertCircle } from 'lucide-react';
+import { Shield, Sparkles, BookOpen, HeartHandshake, CheckCircle, X, ChevronDown, ChevronUp, Clock, AlertCircle } from 'lucide-react';
 import { RiskTier, User } from '../../types';
 
 interface TieredResourceCardProps {
@@ -20,36 +20,9 @@ export const TieredResourceCard: React.FC<TieredResourceCardProps> = ({
   onConnectGuidance,
   triggerContext
 }) => {
-  const [activeTab, setActiveTab] = useState<'breathe' | 'ground' | 'journal'>('breathe');
-  const [isBreathing, setIsBreathing] = useState<boolean>(false);
-  const [breathPhase, setBreathPhase] = useState<'Inhale' | 'Hold' | 'Exhale'>('Inhale');
-  const [breathCount, setBreathCount] = useState<number>(4);
+  const [activeTab, setActiveTab] = useState<'ground' | 'journal'>('ground');
   const [tier2Status, setTier2Status] = useState<'prompt' | 'connected' | 'dismissed'>('prompt');
   const [isExpanded, setIsExpanded] = useState<boolean>(true);
-
-  // 4-7-8 Breathing Loop
-  useEffect(() => {
-    let interval: any = null;
-    if (isBreathing) {
-      interval = setInterval(() => {
-        setBreathCount(prev => {
-          if (prev <= 1) {
-            setBreathPhase(current => {
-              if (current === 'Inhale') return 'Hold';
-              if (current === 'Hold') return 'Exhale';
-              return 'Inhale';
-            });
-            return breathPhase === 'Inhale' ? 7 : (breathPhase === 'Hold' ? 8 : 4);
-          }
-          return prev - 1;
-        });
-      }, 1000);
-    } else {
-      setBreathCount(4);
-      setBreathPhase('Inhale');
-    }
-    return () => clearInterval(interval);
-  }, [isBreathing, breathPhase]);
 
   const handleConnect = async () => {
     setTier2Status('connected');
@@ -119,7 +92,7 @@ export const TieredResourceCard: React.FC<TieredResourceCardProps> = ({
               ? isDarkMode ? 'bg-amber-950/80 text-amber-300' : 'bg-amber-100 text-amber-800'
               : isDarkMode ? 'bg-emerald-950/80 text-emerald-300' : 'bg-emerald-100 text-emerald-800'
           }`}>
-            {tier === 2 ? <HeartHandshake className="w-5 h-5" /> : <Wind className="w-5 h-5" />}
+            {tier === 2 ? <HeartHandshake className="w-5 h-5" /> : <Sparkles className="w-5 h-5" />}
           </div>
           <div>
             <div className="flex items-center space-x-2">
@@ -133,7 +106,7 @@ export const TieredResourceCard: React.FC<TieredResourceCardProps> = ({
             </div>
             <h4 className="text-xs sm:text-sm font-bold text-slate-900 dark:text-[#EDE5DB] mt-0.5">
               {tier === 2
-                ? 'Take a gentle breath. You don\'t have to carry this alone.'
+                ? 'Take a gentle moment. You don\'t have to carry this alone.'
                 : 'Here are a few gentle practices to help you reset.'}
             </h4>
           </div>
@@ -220,20 +193,7 @@ export const TieredResourceCard: React.FC<TieredResourceCardProps> = ({
             className="px-4 sm:px-5 pb-5 pt-1 space-y-4"
           >
             {/* Tabs */}
-            <div className="flex items-center space-x-1.5 p-1 bg-black/5 dark:bg-white/5 rounded-2xl max-w-sm">
-              <button
-                type="button"
-                onClick={() => setActiveTab('breathe')}
-                className={`flex-1 py-1.5 px-3 rounded-xl text-xs font-bold transition-all ${
-                  activeTab === 'breathe'
-                    ? isDarkMode
-                      ? 'bg-slate-800 text-white shadow-xs'
-                      : 'bg-white text-slate-900 shadow-xs'
-                    : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
-                }`}
-              >
-                🌬️ 4-7-8 Breathing
-              </button>
+            <div className="flex items-center space-x-1.5 p-1 bg-black/5 dark:bg-white/5 rounded-2xl max-w-xs">
               <button
                 type="button"
                 onClick={() => setActiveTab('ground')}
@@ -261,56 +221,6 @@ export const TieredResourceCard: React.FC<TieredResourceCardProps> = ({
                 📝 Micro Prompt
               </button>
             </div>
-
-            {/* Tab 1: 4-7-8 Breathing Guide */}
-            {activeTab === 'breathe' && (
-              <div className={`p-4 rounded-2xl border text-center transition-all ${
-                isDarkMode ? 'bg-black/20 border-slate-800' : 'bg-white/80 border-slate-200/80'
-              }`}>
-                <div className="py-3 flex flex-col items-center justify-center">
-                  <motion.div
-                    animate={
-                      isBreathing
-                        ? breathPhase === 'Inhale'
-                          ? { scale: [1, 1.3], opacity: [0.8, 1] }
-                          : breathPhase === 'Hold'
-                          ? { scale: 1.3, opacity: 1 }
-                          : { scale: [1.3, 1], opacity: [1, 0.8] }
-                        : { scale: 1 }
-                    }
-                    transition={{ duration: breathPhase === 'Inhale' ? 4 : (breathPhase === 'Hold' ? 7 : 8), ease: 'easeInOut' }}
-                    className={`w-20 h-20 rounded-full flex flex-col items-center justify-center font-bold text-white shadow-lg transition-colors ${
-                      breathPhase === 'Inhale'
-                        ? 'bg-sky-500 shadow-sky-500/30'
-                        : breathPhase === 'Hold'
-                        ? 'bg-amber-500 shadow-amber-500/30'
-                        : 'bg-emerald-500 shadow-emerald-500/30'
-                    }`}
-                  >
-                    <span className="text-xs uppercase tracking-wider">{breathPhase}</span>
-                    <span className="text-xl font-black">{breathCount}s</span>
-                  </motion.div>
-
-                  <p className="text-xs text-slate-600 dark:text-slate-300 mt-3 font-medium">
-                    {isBreathing
-                      ? breathPhase === 'Inhale'
-                        ? 'Inhale quietly through your nose for 4 seconds...'
-                        : breathPhase === 'Hold'
-                        ? 'Hold your breath gently for 7 seconds...'
-                        : 'Exhale completely through your mouth for 8 seconds...'
-                      : 'Practice 4-7-8 diaphragmatic breathing to settle your nervous system.'}
-                  </p>
-
-                  <button
-                    type="button"
-                    onClick={() => setIsBreathing(!isBreathing)}
-                    className="mt-3.5 px-4 py-2 bg-slate-900 dark:bg-slate-700 text-white rounded-xl text-xs font-bold hover:bg-slate-800 transition-colors"
-                  >
-                    {isBreathing ? 'Stop Exercise' : 'Start 4-7-8 Breathing'}
-                  </button>
-                </div>
-              </div>
-            )}
 
             {/* Tab 2: 5-4-3-2-1 Sensory Grounding */}
             {activeTab === 'ground' && (

@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { User, CompanionId, ChatMessage, MoodLog, RiskTier, AcademicClusterId, UserStressLevel } from '../../types';
 import { COMPANIONS } from '../../data/mockData';
 import { getClusterById } from '../../data/academicTracks';
-import { Send, ArrowLeft, GraduationCap, Heart, Target, RefreshCw, Sparkles, BookOpen, Zap, Wind, Coffee, ShieldAlert, Clock } from 'lucide-react';
+import { Send, ArrowLeft, GraduationCap, Heart, Target, RefreshCw, Sparkles, BookOpen, Zap, Coffee, ShieldAlert, Clock } from 'lucide-react';
 import { TieredResourceCard } from './TieredResourceCard';
 import { classifyRisk } from '../../utils/riskClassifier';
 import { DependencyBreakModal } from './DependencyBreakModal';
@@ -108,8 +108,7 @@ export const CompanionRoomView: React.FC<CompanionRoomViewProps> = ({
   });
   const [inputText, setInputText] = useState<string>('');
   const [isLoading, setIsLoading] = useState<boolean>(false);
-  const [showBreathingTool, setShowBreathingTool] = useState<boolean>(false);
-  const [breathingPhase, setBreathingPhase] = useState<'inhale' | 'hold' | 'exhale'>('inhale');
+  const [streamingText, setStreamingText] = useState<string>('');
   const [activeInlineRiskTier, setActiveInlineRiskTier] = useState<{ tier: RiskTier; context: string } | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -251,28 +250,14 @@ export const CompanionRoomView: React.FC<CompanionRoomViewProps> = ({
     });
   }, [currentUser.id]);
 
-  // Breathing timer cycle for Wellness tab's calm room
-  useEffect(() => {
-    if (!showBreathingTool) return;
-    const interval = setInterval(() => {
-      setBreathingPhase(prev => {
-        if (prev === 'inhale') return 'hold';
-        if (prev === 'hold') return 'exhale';
-        return 'inhale';
-      });
-    }, 4000);
-    return () => clearInterval(interval);
-  }, [showBreathingTool]);
-
-  // Scroll to bottom when messages update
+  // Scroll to bottom when messages update or text streams in
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages, activeCompanionId, isLoading, activeInlineRiskTier]);
+  }, [messages, activeCompanionId, isLoading, streamingText, activeInlineRiskTier]);
 
   const handleSelectTab = (tab: ChatTabDef) => {
     if (tab.id === activeTab) return;
     setActiveTab(tab.id);
-    setShowBreathingTool(false);
     setActiveInlineRiskTier(null);
     onSwitchCompanionRoom(tab.companionId);
   };
@@ -369,20 +354,75 @@ export const CompanionRoomView: React.FC<CompanionRoomViewProps> = ({
           stressLevel: stressLevel,
           history: companionHistory,
           isDependencyDeescalation: isWindDown || isDependencyDeescalation,
-          messageCount: nextMsgCount
+          messageCount: nextMsgCount,
+          stream: true
         })
       });
 
-      // Inspect response Content-Type and HTTP status before attempting to parse JSON!
       const contentType = response.headers.get('content-type') || '';
-      let data: any = null;
+      let replyText = '';
+      let serverTier: RiskTier | undefined = localRiskCheck?.tier;
+      let triggerPhrase: string | undefined = localRiskCheck?.triggerPhrase;
+      let isCrisisTriggered = false;
+      let isSessionEnded = false;
+      let timestamp = new Date().toISOString();
 
-      if (contentType.includes('application/json')) {
+      if (contentType.includes('text/event-stream') && response.body) {
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = '';
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          buffer += decoder.decode(value, { stream: true });
+          const events = buffer.split('\n\n');
+          buffer = events.pop() || '';
+
+          for (const ev of events) {
+            const line = ev.trim();
+            if (line.startsWith('data: ')) {
+              try {
+                const payload = JSON.parse(line.slice(6));
+                if (payload.error) {
+                  throw new Error(payload.error);
+                }
+                if (payload.chunk) {
+                  replyText += payload.chunk;
+                  setStreamingText(replyText);
+                }
+                if (payload.done) {
+                  if (payload.reply) replyText = payload.reply;
+                  if (payload.riskTier !== undefined) serverTier = payload.riskTier;
+                  if (payload.triggerPhrase) triggerPhrase = payload.triggerPhrase;
+                  if (payload.isCrisisTriggered) isCrisisTriggered = payload.isCrisisTriggered;
+                  if (payload.isSessionEnded) isSessionEnded = payload.isSessionEnded;
+                  if (payload.timestamp) timestamp = payload.timestamp;
+                }
+              } catch (parseErr: any) {
+                if (parseErr.message && parseErr.message.includes('Gemini API error')) {
+                  throw parseErr;
+                }
+              }
+            }
+          }
+        }
+      } else if (contentType.includes('application/json')) {
+        let data: any = null;
         try {
           data = await response.json();
         } catch (jsonErr: any) {
           throw new Error(`Invalid JSON received from server: ${jsonErr.message}`);
         }
+        if (!response.ok) {
+          throw new Error(data?.error || data?.message || `Server returned error (${response.status})`);
+        }
+        replyText = data.reply || data.text || "No response received from companion.";
+        serverTier = data.riskTier || localRiskCheck?.tier;
+        triggerPhrase = data.triggerPhrase;
+        isCrisisTriggered = !!data.isCrisisTriggered;
+        isSessionEnded = !!data.isSessionEnded;
+        timestamp = data.timestamp || new Date().toISOString();
       } else {
         const rawText = await response.text();
         const snippet = rawText.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 140);
@@ -391,11 +431,9 @@ export const CompanionRoomView: React.FC<CompanionRoomViewProps> = ({
         );
       }
 
-      if (!response.ok) {
-        throw new Error(data?.error || data?.message || `Server returned error (${response.status})`);
+      if (!response.ok && !replyText) {
+        throw new Error(`Server returned error (${response.status})`);
       }
-
-      const serverTier: RiskTier | undefined = data.riskTier || localRiskCheck?.tier;
 
       // If server detected risk tier 2 or 3 and it wasn't caught locally, log it
       if ((serverTier === 3 || serverTier === 2) && (!localRiskCheck || localRiskCheck.tier === 1)) {
@@ -409,23 +447,21 @@ export const CompanionRoomView: React.FC<CompanionRoomViewProps> = ({
           lrn: currentUser.lrn,
           companionUsed: companionName,
           flaggedSnippet: text,
-          triggerPhrase: data.triggerPhrase || text.substring(0, 50),
+          triggerPhrase: triggerPhrase || text.substring(0, 50),
           riskLevel: serverTier === 3 ? 'High' : 'Moderate'
         });
       }
-
-      const replyText = data.reply || data.text || "No response received from companion.";
 
       const botMsg: ChatMessage = {
         id: `bot_${Date.now()}`,
         studentId: currentUser.id,
         companionId: activeCompanionId,
         sender: 'bot',
-        text: replyText,
-        timestamp: data.timestamp || new Date().toISOString(),
-        isCrisisTriggered: data.isCrisisTriggered,
+        text: replyText || "No response received from companion.",
+        timestamp: timestamp,
+        isCrisisTriggered: isCrisisTriggered,
         riskTier: serverTier,
-        riskTriggerPhrase: data.triggerPhrase
+        riskTriggerPhrase: triggerPhrase
       };
 
       setMessages(prev => ({
@@ -433,13 +469,13 @@ export const CompanionRoomView: React.FC<CompanionRoomViewProps> = ({
         [activeCompanionId]: [...(prev[activeCompanionId] || []), botMsg]
       }));
 
-      if (serverTier === 3 || data.isCrisisTriggered) {
+      if (serverTier === 3 || isCrisisTriggered) {
         onCrisisTriggered(true);
       } else if (serverTier === 2 || serverTier === 1) {
         setActiveInlineRiskTier({ tier: serverTier, context: text });
       }
 
-      if (data.isSessionEnded || nextMsgCount >= MAX_SESSION_STUDENT_MESSAGES) {
+      if (isSessionEnded || nextMsgCount >= MAX_SESSION_STUDENT_MESSAGES) {
         setIsDependencyBreakModalOpen(true);
         setHasShownDependencyModal(true);
       }
@@ -459,6 +495,7 @@ export const CompanionRoomView: React.FC<CompanionRoomViewProps> = ({
       }));
     } finally {
       setIsLoading(false);
+      setStreamingText('');
     }
   };
 
@@ -515,7 +552,8 @@ export const CompanionRoomView: React.FC<CompanionRoomViewProps> = ({
       promptPill: isDarkMode
         ? 'bg-[#221A2E] hover:bg-[#2E233E] text-[#D8C7F0] border-[#3D2F54]'
         : 'bg-white hover:bg-[#F5F0FA] text-[#6E5496] border-[#E4D7F2] shadow-2xs',
-      avatarBg: isDarkMode ? 'bg-[#2D2440] text-[#D8C7F0] ring-2 ring-[#3D3057]' : 'bg-[#F4EDFA] text-[#6E5496] ring-2 ring-[#EADBFA]'
+      avatarBg: isDarkMode ? 'bg-[#2D2440] text-[#D8C7F0] ring-2 ring-[#3D3057]' : 'bg-[#F4EDFA] text-[#6E5496] ring-2 ring-[#EADBFA]',
+      indicatorDot: isDarkMode ? 'bg-[#CDB4EC]' : 'bg-[#7D5EAA]'
     },
     cedi: {
       accentColor: 'text-[#BF7B36] dark:text-[#F2C9A3]',
@@ -528,7 +566,8 @@ export const CompanionRoomView: React.FC<CompanionRoomViewProps> = ({
       promptPill: isDarkMode
         ? 'bg-[#281A12] hover:bg-[#382418] text-[#F5C79E] border-[#4E3220]'
         : 'bg-white hover:bg-[#FDF3EB] text-[#A6692E] border-[#F5DCBE] shadow-2xs',
-      avatarBg: isDarkMode ? 'bg-[#3D281C] text-[#F5C79E] ring-2 ring-[#573926]' : 'bg-[#FDF3E7] text-[#B5783A] ring-2 ring-[#FCE5CF]'
+      avatarBg: isDarkMode ? 'bg-[#3D281C] text-[#F5C79E] ring-2 ring-[#573926]' : 'bg-[#FDF3E7] text-[#B5783A] ring-2 ring-[#FCE5CF]',
+      indicatorDot: isDarkMode ? 'bg-[#F2C9A3]' : 'bg-[#BF7B36]'
     },
     cali: {
       accentColor: 'text-[#3E7D50] dark:text-[#A4DCB0]',
@@ -541,7 +580,8 @@ export const CompanionRoomView: React.FC<CompanionRoomViewProps> = ({
       promptPill: isDarkMode
         ? 'bg-[#152418] hover:bg-[#1E3323] text-[#A6DCB1] border-[#29422F]'
         : 'bg-white hover:bg-[#EFF6F0] text-[#3E734D] border-[#D3E7D6] shadow-2xs',
-      avatarBg: isDarkMode ? 'bg-[#233527] text-[#A6DCB1] ring-2 ring-[#314D37]' : 'bg-[#EBF7EF] text-[#4A855A] ring-2 ring-[#D8EDE0]'
+      avatarBg: isDarkMode ? 'bg-[#233527] text-[#A6DCB1] ring-2 ring-[#314D37]' : 'bg-[#EBF7EF] text-[#4A855A] ring-2 ring-[#D8EDE0]',
+      indicatorDot: isDarkMode ? 'bg-[#A4DCB0]' : 'bg-[#3E7D50]'
     }
   }[activeCompanionId];
 
@@ -569,100 +609,51 @@ export const CompanionRoomView: React.FC<CompanionRoomViewProps> = ({
             <span>Back to Dashboard</span>
           </button>
 
-          <div className="flex items-center space-x-1.5 sm:space-x-2 flex-wrap gap-y-1">
-            <span className={`inline-flex items-center space-x-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold border ${
-              isDarkMode ? 'bg-[#221B17] text-[#E8CDAC] border-[#3D332B]' : 'bg-white text-amber-800 border-[#ECDCC6]'
-            }`}>
-              <Sparkles className="w-3 h-3 text-amber-500" />
-              <span>{getClusterById(academicClusterId)?.shortLabel || 'SHS Student'} • Stress: {stressLevel}/10</span>
-            </span>
-
-            {/* Continuous Session Counter & AI Dependency Indicator */}
+          <div className="flex items-center space-x-2 flex-wrap gap-y-1">
+            {/* Discreet Message Counter */}
             <span
-              className={`inline-flex items-center space-x-1 px-2.5 py-1 rounded-full text-[11px] font-semibold border transition-all ${
+              className={`inline-flex items-center space-x-1.5 px-3 py-1 rounded-full text-xs font-medium border transition-all ${
                 isDependencyDeescalation
-                  ? 'bg-amber-500/20 text-amber-600 dark:text-amber-300 border-amber-500/40 ring-1 ring-amber-500/30 animate-pulse'
+                  ? 'bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500/30'
                   : isDarkMode
                   ? 'bg-[#1D1714] text-[#A8988A] border-[#332A24]'
                   : 'bg-white text-[#786455] border-[#EFE3D5]'
               }`}
-              title="Continuous message and active time counter for student wellbeing"
+              title="Continuous student messages in this active session (40 maximum)"
             >
-              <Coffee className="w-3 h-3 text-amber-500" />
-              <span>
-                {consecutiveMessages} msgs • {activeMinutes}m active
-              </span>
-              {isDependencyDeescalation && <span className="font-bold text-[10px] ml-0.5">(Break Recommended)</span>}
+              <Coffee className="w-3.5 h-3.5 text-amber-500" />
+              <span>{consecutiveMessages} / {MAX_SESSION_STUDENT_MESSAGES} msgs</span>
             </span>
 
-            {/* Self-Help Offline Tools Button */}
+            {/* Offline Tools Access */}
             <button
               type="button"
               onClick={() => setIsOfflineToolsOpen(true)}
-              className={`inline-flex items-center space-x-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold border transition-all cursor-pointer shadow-xs ${
+              className={`inline-flex items-center space-x-1.5 px-3 py-1 rounded-full text-xs font-semibold border transition-all cursor-pointer shadow-xs ${
                 isDarkMode
                   ? 'bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 border-amber-500/35'
                   : 'bg-amber-100/70 hover:bg-amber-200/80 text-amber-900 border-amber-300'
               }`}
-              title="Open offline self-help tools (Journaling, Problem-Solving, Study Reflection, Stress Reset)"
+              title="Open offline self-help tools (Guided Reflection, Problem-Solving Guide)"
             >
-              <BookOpen className="w-3 h-3 text-amber-500" />
-              <span>Offline Tools (No AI)</span>
+              <BookOpen className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
+              <span>Offline Tools</span>
             </button>
 
-            {/* Quick Demo Limit Triggers & Session Controls (Hidden in Student Deployment Mode) */}
-            {effectiveDeploymentMode !== 'student' && (
-              <div className="flex items-center space-x-1">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setConsecutiveMessages(21);
-                    setIsDependencyDeescalation(true);
-                  }}
-                  className={`px-2 py-0.5 rounded-full text-[10px] font-bold border transition-all cursor-pointer ${
-                    isDarkMode
-                      ? 'bg-[#241A14] hover:bg-[#32231A] text-[#DE9B52] border-[#443021]'
-                      : 'bg-[#FFF6E9] hover:bg-[#FDE7C7] text-[#8F5B34] border-[#F2DAC0]'
-                  }`}
-                  title="Defense Demo: Preview wind-down mode (Messages 21-39)"
-                >
-                  Test Msg 21
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => {
-                    setConsecutiveMessages(MAX_SESSION_STUDENT_MESSAGES);
-                    setIsDependencyDeescalation(true);
-                    setIsDependencyBreakModalOpen(true);
-                    try {
-                      localStorage.setItem('c3-lockout-timestamp', String(Date.now()));
-                    } catch {}
-                  }}
-                  className={`px-2 py-0.5 rounded-full text-[10px] font-bold border transition-all cursor-pointer ${
-                    isDarkMode
-                      ? 'bg-[#311818] hover:bg-[#422020] text-[#F87171] border-[#5E2B2B]'
-                      : 'bg-[#FEF2F2] hover:bg-[#FEE2E2] text-red-700 border-red-300'
-                  }`}
-                  title="Defense Demo: Preview hard stop lockout (Message 40+)"
-                >
-                  Test Msg 40+
-                </button>
-
-                <button
-                  type="button"
-                  onClick={handleStartNewSession}
-                  className={`px-2 py-0.5 rounded-full text-[10px] font-bold border transition-all cursor-pointer ${
-                    isDarkMode
-                      ? 'bg-[#18231C] hover:bg-[#203126] text-[#6FCF97] border-[#2C4837]'
-                      : 'bg-[#EDF8F1] hover:bg-[#DBF1E2] text-[#27AE60] border-[#B7E4C7]'
-                  }`}
-                  title="Defense Demo Only: Reset counter for panel evaluation"
-                >
-                  Demo Reset
-                </button>
-              </div>
-            )}
+            {/* Start New Session */}
+            <button
+              type="button"
+              onClick={handleStartNewSession}
+              className={`inline-flex items-center space-x-1.5 px-3 py-1 rounded-full text-xs font-semibold border transition-all cursor-pointer shadow-xs ${
+                isDarkMode
+                  ? 'bg-[#221C18] hover:bg-[#2C241F] text-[#D0C0B0] border-[#3D332B]'
+                  : 'bg-white hover:bg-[#F8F3ED] text-[#6D5A50] border-[#E9DFD2]'
+              }`}
+              title="Start a fresh session and reset message counter"
+            >
+              <RefreshCw className="w-3 h-3 text-emerald-500" />
+              <span>Start New Session</span>
+            </button>
           </div>
         </div>
 
@@ -846,23 +837,51 @@ export const CompanionRoomView: React.FC<CompanionRoomViewProps> = ({
             </div>
           )}
 
-          {/* Thinking indicator */}
-          {isLoading && (
-            <div className="flex items-center space-x-2">
-              <div className={`w-8 h-8 rounded-xl flex items-center justify-center text-sm shadow-2xs ${themeStyles.avatarBg}`}>
+          {/* Thinking indicator and Streaming Response */}
+          {isLoading && !streamingText && (
+            <motion.div
+              initial={{ opacity: 0, y: 4 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="flex items-start space-x-2.5"
+            >
+              <div className={`w-8 h-8 rounded-xl flex items-center justify-center text-sm shadow-2xs shrink-0 ${themeStyles.avatarBg}`}>
                 {activeCompanion.avatar}
               </div>
               <div
-                className={`p-3 rounded-2xl rounded-tl-xs text-xs flex items-center space-x-1.5 shadow-2xs ${
+                className={`p-3 sm:p-3.5 rounded-2xl rounded-tl-xs text-xs sm:text-sm flex items-center space-x-2 shadow-2xs border ${
                   isDarkMode
-                    ? 'bg-[#29221C] border border-[#3D332B] text-[#A89A8D]'
-                    : 'bg-white border border-[#EFE6DC] text-[#8C7A7A]'
+                    ? 'bg-[#221A16] border-[#382D25] text-[#D8C7B8]'
+                    : 'bg-white border-[#EFE6DC] text-[#695555]'
                 }`}
               >
-                <span>{activeCompanion.name} is reflecting</span>
-                <span className="animate-pulse">...</span>
+                <span className={`font-semibold ${themeStyles.accentColor}`}>
+                  {activeCompanion.name} is thinking...
+                </span>
+                <span className="inline-flex items-center space-x-1 pl-1">
+                  <span className={`w-1.5 h-1.5 rounded-full ${themeStyles.indicatorDot} animate-bounce`} style={{ animationDelay: '0ms' }} />
+                  <span className={`w-1.5 h-1.5 rounded-full ${themeStyles.indicatorDot} animate-bounce`} style={{ animationDelay: '150ms' }} />
+                  <span className={`w-1.5 h-1.5 rounded-full ${themeStyles.indicatorDot} animate-bounce`} style={{ animationDelay: '300ms' }} />
+                </span>
               </div>
-            </div>
+            </motion.div>
+          )}
+
+          {isLoading && streamingText && (
+            <motion.div
+              initial={{ opacity: 0, y: 4 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="flex items-start space-x-2.5"
+            >
+              <div className={`w-8 h-8 rounded-xl flex items-center justify-center text-sm shadow-2xs shrink-0 ${themeStyles.avatarBg}`}>
+                {activeCompanion.avatar}
+              </div>
+              <div
+                className={`max-w-[85%] sm:max-w-[78%] p-3 sm:p-3.5 rounded-2xl text-xs sm:text-sm leading-relaxed whitespace-pre-wrap ${themeStyles.botBubble} rounded-tl-xs`}
+              >
+                <span>{streamingText}</span>
+                <span className={`inline-block w-1.5 h-3.5 ml-1 align-middle ${themeStyles.accentColor} animate-pulse`}>▍</span>
+              </div>
+            </motion.div>
           )}
 
           <div ref={messagesEndRef} />
@@ -950,6 +969,16 @@ export const CompanionRoomView: React.FC<CompanionRoomViewProps> = ({
             </div>
 
             <div className="flex items-center justify-center gap-2.5 flex-wrap pt-1">
+              {/* [Start New Session] button */}
+              <button
+                type="button"
+                onClick={handleStartNewSession}
+                className="px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold bg-emerald-600 hover:bg-emerald-500 text-white transition-all flex items-center space-x-2 cursor-pointer shadow-md"
+              >
+                <RefreshCw className="w-4 h-4" />
+                <span>Start New Session</span>
+              </button>
+
               {/* [Self-Help & Offline Tools] button */}
               <button
                 type="button"
@@ -989,6 +1018,7 @@ export const CompanionRoomView: React.FC<CompanionRoomViewProps> = ({
                 type="text"
                 value={inputText}
                 onChange={(e) => setInputText(e.target.value)}
+                disabled={isLoading}
                 placeholder={
                   activeTab === 'skill'
                     ? `Ask ${activeCompanion.name} to quiz you on any subject or concept...`
@@ -1013,7 +1043,7 @@ export const CompanionRoomView: React.FC<CompanionRoomViewProps> = ({
         )}
       </div>
 
-      {/* AI Dependency Engine: Grounding & Breathing Break Modal */}
+      {/* AI Dependency Engine: Grounding & Wellbeing Break Modal */}
       <DependencyBreakModal
         isOpen={isDependencyBreakModalOpen}
         onClose={() => setIsDependencyBreakModalOpen(false)}

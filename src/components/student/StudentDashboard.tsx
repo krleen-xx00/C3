@@ -1,14 +1,12 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { User, CompanionId, MoodLog, InspirationSource, RiskTier, AcademicClusterId, UserStressLevel } from '../../types';
 import { motion, AnimatePresence } from 'motion/react';
-import { Sparkles, ArrowRight, Settings, UserPlus, BookOpen } from 'lucide-react';
+import { Sparkles, ArrowRight, BookOpen, HeartHandshake, ShieldCheck, MapPin, Clock, Phone, AlertCircle, ExternalLink } from 'lucide-react';
 import { DailyInspirationCard } from './DailyInspirationCard';
-import { PersonalizationPanel } from './PersonalizationPanel';
 import { TieredResourceCard } from './TieredResourceCard';
 import { OfflineToolsModal } from './OfflineToolsModal';
 import { classifyRisk } from '../../utils/riskClassifier';
 import { getClusterById } from '../../data/academicTracks';
-import { getDailyInspiration } from '../../data/affirmationsData';
 
 interface StudentDashboardProps {
   currentUser: User;
@@ -173,9 +171,6 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
   const todayStr = new Date().toISOString().split('T')[0];
   const latestTodayLog = moodLogs.find(l => l.studentId === currentUser.id && l.date === todayStr);
 
-  // Personalization panel state
-  const [isPersonalizationOpen, setIsPersonalizationOpen] = useState<boolean>(false);
-
   // Used for greeting personalization
   const displayName = (preferredName || currentUser.name.split(' ')[0]).trim();
   const clusterLabel = getClusterById(academicClusterId)?.shortLabel || '';
@@ -291,10 +286,10 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
     {
       id: 'casti' as CompanionId,
       name: 'Casti',
-      role: 'Gentle Peer Supporter',
+      role: 'Wellness Listener',
       icon: '☁️',
-      tagline: 'Empathic & Grounding',
-      description: 'A safe, grounded space with wellness tips for when you feel heavy.',
+      tagline: 'Non-Clinical Emotional Support & Coping',
+      description: 'A comforting, non-clinical listening ear for everyday stress, emotions, and gentle coping strategies. Never replaces human relationships.',
       cardBg: isDarkMode
         ? 'bg-gradient-to-b from-[#1F1B2B] to-[#191523] border-[#382E4F] shadow-[0_6px_28px_rgba(0,0,0,0.35)] hover:shadow-[0_16px_38px_rgba(75,55,115,0.35)]'
         : 'bg-gradient-to-b from-[#F5F0FA] to-[#EDE4F7] border-[#E4D7F2] shadow-[0_6px_28px_rgba(160,130,200,0.08)] hover:shadow-[0_16px_38px_rgba(150,120,195,0.18)]',
@@ -310,10 +305,10 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
     {
       id: 'cedi' as CompanionId,
       name: 'Cedi',
-      role: 'Reflective & Creative Companion',
+      role: 'Skill Builder',
       icon: '☀️',
-      tagline: 'Reframe, Write & Create',
-      description: 'Helps you reframe tough thoughts, write it out, and find fresh solutions.',
+      tagline: 'Practical ICT Skills & 3-Question Quizzes',
+      description: 'Interactive ICT practice, programming logic drills, computer concepts, and 3-question quizzes to reinforce your learning.',
       cardBg: isDarkMode
         ? 'bg-gradient-to-b from-[#2E2017] to-[#241810] border-[#4E3524] shadow-[0_6px_28px_rgba(0,0,0,0.35)] hover:shadow-[0_16px_38px_rgba(115,75,40,0.35)]'
         : 'bg-gradient-to-b from-[#FDF3EB] to-[#FAECE0] border-[#F5DCBE] shadow-[0_6px_28px_rgba(220,145,85,0.08)] hover:shadow-[0_16px_38px_rgba(215,135,70,0.18)]',
@@ -329,10 +324,10 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
     {
       id: 'cali' as CompanionId,
       name: 'Cali',
-      role: 'Academic & Action Guide',
+      role: 'Academic Helper',
       icon: '🌿',
-      tagline: 'Structured & Practical',
-      description: 'Turns exam pressure and deadlines into a clear, doable study plan.',
+      tagline: 'Study Habits & Guided Problem Solving',
+      description: 'Guidance on study methods, understanding lesson concepts, and breaking down tough academic problems step-by-step.',
       cardBg: isDarkMode
         ? 'bg-gradient-to-b from-[#1A261D] to-[#141F17] border-[#2B4232] shadow-[0_6px_28px_rgba(0,0,0,0.35)] hover:shadow-[0_16px_38px_rgba(45,85,55,0.35)]'
         : 'bg-gradient-to-b from-[#EFF6F0] to-[#E3EFE5] border-[#D3E7D6] shadow-[0_6px_28px_rgba(100,170,120,0.08)] hover:shadow-[0_16px_38px_rgba(90,160,110,0.18)]',
@@ -556,22 +551,13 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
             embedded={true}
           />
 
-          {/* Card Bottom Actions: Customize Track & Stress Level */}
-          <div className={`pt-2 border-t flex flex-wrap items-center justify-between gap-2 text-xs ${
+          {/* Card Bottom Actions: Offline Tools */}
+          <div className={`pt-3 border-t flex flex-wrap items-center justify-between gap-2 text-xs ${
             isDarkMode ? 'border-[#332B25]' : 'border-[#F0E6D8]'
           }`}>
-            <button
-              type="button"
-              onClick={() => setIsPersonalizationOpen(true)}
-              className={`inline-flex items-center space-x-1.5 px-3.5 py-1.5 rounded-full text-xs font-semibold transition-all duration-200 border shadow-2xs hover:scale-102 cursor-pointer ${
-                isDarkMode
-                  ? 'bg-[#1C1714] text-[#E8CDAC] border-[#3D332B] hover:bg-[#2C231D]'
-                  : 'bg-white text-amber-800 border-[#ECDCC6] hover:bg-amber-50/60'
-              }`}
-            >
-              <UserPlus className="w-3.5 h-3.5 text-amber-600" />
-              <span>Customize Track &amp; Stress</span>
-            </button>
+            <span className={`text-[11px] font-normal ${isDarkMode ? 'text-[#9E8F82]' : 'text-[#8A7569]'}`}>
+              Need a quiet moment away from chat?
+            </span>
 
             <button
               type="button"
@@ -581,19 +567,10 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                   ? 'bg-amber-500/15 text-amber-300 border-amber-500/35 hover:bg-amber-500/25'
                   : 'bg-amber-100/80 text-amber-900 border-amber-300 hover:bg-amber-200'
               }`}
-              title="Open offline self-help tools (Journaling, Problem-Solving, Study Reflection, Stress Reset)"
+              title="Open offline self-help tools (Guided Reflection, Problem-Solving Guide)"
             >
               <BookOpen className="w-3.5 h-3.5 text-amber-500" />
               <span>Offline Tools (No AI)</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => handleUpdateInspirationSource(inspirationSource === 'affirmations' ? 'scripture' : 'affirmations')}
-              className="text-[11px] font-medium text-amber-700/80 dark:text-amber-300/80 hover:underline cursor-pointer"
-              title="Click to switch between Daily Affirmations and Scripture"
-            >
-              Active: {inspirationSource === 'affirmations' ? '✨ Affirmations' : '📖 Scripture'}
             </button>
           </div>
 
@@ -689,56 +666,145 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
         </div>
       </section>
 
-      {/* 5. Gentle Daily Encouragement Footer (Scripture or Secular Affirmation) */}
-      {(() => {
-        const footerItem = getDailyInspiration(inspirationSource);
-        return (
-          <footer className={`text-center pt-8 pb-4 border-t ${
-            isDarkMode ? 'border-[#332B25]' : 'border-[#EBE2D5]'
+      {/* 5. Human Support Information & Guidance Services */}
+      <section className="space-y-4">
+        <div className={`rounded-3xl p-6 sm:p-7 border transition-all ${
+          isDarkMode
+            ? 'bg-[#1C1714]/90 border-[#382E26] shadow-md'
+            : 'bg-white border-[#EFE3D5] shadow-xs'
+        }`}>
+          <div className="flex items-center space-x-2.5 pb-3 border-b border-inherit">
+            <div className="w-9 h-9 rounded-xl bg-amber-500/15 text-amber-700 dark:text-amber-300 flex items-center justify-center shrink-0">
+              <HeartHandshake className="w-5 h-5 text-amber-600 dark:text-amber-400" />
+            </div>
+            <div>
+              <h3 className="text-base sm:text-lg font-bold tracking-tight">
+                Guidance Office &amp; Human Support
+              </h3>
+              <p className={`text-xs ${isDarkMode ? 'text-[#A09080]' : 'text-[#7D6B5E]'}`}>
+                C3 AI companions are automated aids. Reach out to human counselors whenever you need personal support.
+              </p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4 text-xs">
+            {/* School Guidance Office */}
+            <div className={`p-4 rounded-2xl border space-y-2 ${
+              isDarkMode ? 'bg-[#15110E] border-[#2E241E]' : 'bg-[#FAF7F2] border-[#EAE0D2]'
+            }`}>
+              <div className="flex items-center space-x-1.5 font-bold text-amber-800 dark:text-amber-300">
+                <MapPin className="w-3.5 h-3.5" />
+                <span>Cabiao SHS Guidance &amp; Counseling Office</span>
+              </div>
+              <p className={isDarkMode ? 'text-[#B0A090]' : 'text-[#6D5A50]'}>
+                Room 204, Administration Building, Cabiao Senior High School
+              </p>
+              <div className="flex items-center space-x-1.5 text-[11px] text-stone-500 dark:text-stone-400 pt-1">
+                <Clock className="w-3.5 h-3.5" />
+                <span>Monday – Friday: 7:30 AM – 4:30 PM (Guidance Staff on Duty)</span>
+              </div>
+            </div>
+
+            {/* 24/7 Crisis Hotlines */}
+            <div className={`p-4 rounded-2xl border space-y-2 ${
+              isDarkMode ? 'bg-[#15110E] border-[#2E241E]' : 'bg-[#FAF7F2] border-[#EAE0D2]'
+            }`}>
+              <div className="flex items-center space-x-1.5 font-bold text-emerald-800 dark:text-emerald-300">
+                <Phone className="w-3.5 h-3.5" />
+                <span>24/7 National Crisis Hotlines</span>
+              </div>
+              <div className="space-y-1 text-[11px]">
+                <p className="flex justify-between">
+                  <span className="font-semibold">NCMH Crisis Helpline:</span>
+                  <span className="font-mono font-bold">1553 (Luzon toll-free) / 0917-899-8727</span>
+                </p>
+                <p className="flex justify-between">
+                  <span className="font-semibold">Hopeline Philippines:</span>
+                  <span className="font-mono font-bold">(02) 8804-4673 / 0917-558-4673</span>
+                </p>
+              </div>
+              <p className="text-[10px] text-stone-500 dark:text-stone-400 pt-1">
+                In acute distress or physical emergency, contact a trusted teacher, parent, or emergency services immediately.
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* 6. Privacy & AI Limitations Transparency */}
+      <section className="space-y-3">
+        <div className={`rounded-3xl p-6 sm:p-7 border text-xs leading-relaxed space-y-3 ${
+          isDarkMode
+            ? 'bg-[#181310]/80 border-[#2E241E] text-[#B0A294]'
+            : 'bg-[#FAF6F0] border-[#EFE5D8] text-[#69584F]'
+        }`}>
+          <div className="flex items-center space-x-2 font-bold text-sm text-stone-900 dark:text-stone-100 pb-1">
+            <ShieldCheck className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+            <span>Privacy &amp; AI System Boundaries</span>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-[11px] pt-1">
+            <div className="space-y-1">
+              <span className="font-bold text-stone-900 dark:text-stone-200">What We Collect:</span>
+              <p>Display name, grade &amp; section, optional LRN, parent emergency phone (for school counselor manual phone outreach in severe safety alerts only), and session mood records.</p>
+            </div>
+
+            <div className="space-y-1">
+              <span className="font-bold text-stone-900 dark:text-stone-200">Where Data is Kept:</span>
+              <p>Session chat logs are stored locally in your browser storage and synchronized with the prototype backend database (<code className="px-1 py-0.5 rounded bg-stone-200 dark:bg-stone-800">c3_store.json</code>).</p>
+            </div>
+
+            <div className="space-y-1">
+              <span className="font-bold text-stone-900 dark:text-stone-200">What Reaches Google Gemini:</span>
+              <p>Only your immediate message, preferred first name, academic track label, and recent turns within the active session. Parent phones, passwords, and student credentials are never sent to Gemini.</p>
+            </div>
+
+            <div className="space-y-1">
+              <span className="font-bold text-stone-900 dark:text-stone-200">Who Has Access:</span>
+              <p>You have access to your active session. Authorized Cabiao SHS guidance counselors can review safety-flagged crisis alerts through a password-protected counselor portal.</p>
+            </div>
+          </div>
+
+          <div className={`p-3 rounded-2xl border text-[11px] mt-2 space-y-1 ${
+            isDarkMode ? 'bg-[#14100E] border-[#2B211A]' : 'bg-white border-[#E8DDD0]'
           }`}>
-            <p className={`text-xs sm:text-sm font-medium max-w-lg mx-auto leading-relaxed ${
-              isDarkMode ? 'text-[#B0A294]' : 'text-[#7D6868]'
-            }`}>
-              "{footerItem.text}"
+            <span className="font-bold text-amber-700 dark:text-amber-400 flex items-center space-x-1">
+              <AlertCircle className="w-3.5 h-3.5" />
+              <span>AI Companion Limitations:</span>
+            </span>
+            <p>
+              Cali, Casti, and Cedi are experimental AI assistants powered by Google Gemini. They are <strong>NOT</strong> licensed counselors, clinical psychologists, or medical doctors. AI responses may occasionally contain inaccuracies. They are designed to support your reflection and study habits, not to replace human relationships or clinical therapy.
             </p>
-            <p className={`text-[11px] mt-1.5 font-semibold tracking-wide ${
-              isDarkMode ? 'text-[#8C7B6E]' : 'text-[#967C7C]'
-            }`}>
-              — {footerItem.referenceOrTheme}
-            </p>
+          </div>
+        </div>
+      </section>
 
-            {onOpenAbout && (
-              <button
-                type="button"
-                onClick={onOpenAbout}
-                className={`mt-6 inline-flex items-center space-x-2 px-4 py-2 rounded-full text-xs font-semibold transition-all duration-200 cursor-pointer backdrop-blur-xs border shadow-2xs hover:-translate-y-0.5 ${
-                  isDarkMode
-                    ? 'text-[#C9BAAB] bg-[#201B17]/60 border-[#3A322B] hover:bg-[#2A231D] hover:border-[#4A4037]'
-                    : 'text-[#7D665B] bg-white/70 border-[#EFE5D8] hover:bg-white hover:border-[#E0D4C4]'
-                }`}
-              >
-                <span>✦</span>
-                <span>About the Research Team</span>
-              </button>
-            )}
-          </footer>
-        );
-      })()}
+      {/* 7. Clean Research Prototype Footer */}
+      <footer className={`text-center pt-6 pb-4 border-t ${
+        isDarkMode ? 'border-[#332B25]' : 'border-[#EBE2D5]'
+      }`}>
+        <p className="text-xs font-bold tracking-tight text-stone-800 dark:text-stone-200">
+          C3 • Cabiao Senior High School AI Companion Research Project
+        </p>
+        <p className={`text-[11px] mt-1 ${isDarkMode ? 'text-[#8C7B6E]' : 'text-[#8C7A7A]'}`}>
+          Academic Research Prototype for Student Wellbeing &amp; Learning Support
+        </p>
 
-      {/* Personalization Panel */}
-      <PersonalizationPanel
-        isOpen={isPersonalizationOpen}
-        onClose={() => setIsPersonalizationOpen(false)}
-        isDarkMode={isDarkMode}
-        academicClusterId={academicClusterId}
-        onChangeAcademicCluster={onChangeAcademicCluster}
-        stressLevel={stressLevel}
-        onChangeStressLevel={onChangeStressLevel}
-        inspirationSource={inspirationSource}
-        onChangeInspirationSource={handleUpdateInspirationSource}
-        preferredName={preferredName}
-        onChangePreferredName={onChangePreferredName}
-      />
+        {onOpenAbout && (
+          <button
+            type="button"
+            onClick={onOpenAbout}
+            className={`mt-4 inline-flex items-center space-x-2 px-4 py-2 rounded-full text-xs font-semibold transition-all duration-200 cursor-pointer backdrop-blur-xs border shadow-2xs hover:-translate-y-0.5 ${
+              isDarkMode
+                ? 'text-[#C9BAAB] bg-[#201B17]/60 border-[#3A322B] hover:bg-[#2A231D] hover:border-[#4A4037]'
+                : 'text-[#7D665B] bg-white/70 border-[#EFE5D8] hover:bg-white hover:border-[#E0D4C4]'
+            }`}
+          >
+            <span>✦</span>
+            <span>About the Research Team &amp; Thesis Deck</span>
+          </button>
+        )}
+      </footer>
 
       {/* Offline Tools Modal */}
       <OfflineToolsModal

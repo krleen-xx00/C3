@@ -232,8 +232,13 @@ export const CounselorDashboard: React.FC<CounselorDashboardProps> = ({ isDarkMo
     // Focus event when switching back into the tab/view
     window.addEventListener('focus', handleSync);
 
-    // Also attempt fetching from server API to merge any persisted logs
-    fetch('/api/flagged-risks')
+    // Also attempt fetching from server API to merge any persisted logs with authorization
+    const token = localStorage.getItem('c3-active-counselor-token') || 'csl_token_default';
+    fetch('/api/flagged-risks', {
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
+    })
       .then(res => res.json())
       .then(data => {
         if (data?.success && Array.isArray(data.logs) && data.logs.length > 0) {
@@ -523,11 +528,11 @@ export const CounselorDashboard: React.FC<CounselorDashboardProps> = ({ isDarkMo
                 <span>PRIVACY &amp; HUMAN ESCALATION PROTOCOL</span>
               </span>
               <span className="text-[10px] px-2 py-0.5 rounded-full font-bold bg-amber-500/15 border border-amber-500/25">
-                Human-in-the-Loop Safeguard
+                Prototype Audit Log (Human-in-the-Loop)
               </span>
             </div>
             <p className="text-xs sm:text-[13px] leading-relaxed font-medium">
-              Automated alerts are sent strictly to the Guidance Counselor Dashboard. No automated messages are ever sent directly to parents. Any parent notification must be conducted manually and personally by a guidance counselor after human review.
+              Safety concerns are recorded in this internal prototype log for counselor review. No automated SMS or push notifications are dispatched externally in this prototype, and no automated messages are ever sent to parents. Any parent communication is solely conducted manually and personally by a licensed guidance counselor.
             </p>
           </div>
         </div>
