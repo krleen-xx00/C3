@@ -399,11 +399,11 @@ export const CounselorDashboard: React.FC<CounselorDashboardProps> = ({ isDarkMo
           
           {/* Left branding */}
           <div className="flex items-center space-x-3">
-            <div className="w-10 h-10 rounded-full p-0.5 bg-white ring-1 ring-amber-500/30 flex items-center justify-center shrink-0 shadow-xs">
+            <div className="w-10 h-10 flex items-center justify-center shrink-0">
               <img
                 src="/logo.png"
                 alt="Cabiao SHS Seal"
-                className="w-full h-full object-contain rounded-full"
+                className="w-full h-full object-contain drop-shadow-xs"
               />
             </div>
             <div>

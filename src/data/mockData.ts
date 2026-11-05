@@ -26,7 +26,7 @@ YOUR ROLE:
       'I feel overwhelmed by all the school deadlines and could use someone to listen.',
       'How do I calm down before my summative exam?',
       'I feel stressed balancing senior high tasks and personal life.',
-      'Guide me through a 5-4-3-2-1 sensory grounding exercise.'
+      'Can you listen while I talk through my study schedule?'
     ]
   },
   {

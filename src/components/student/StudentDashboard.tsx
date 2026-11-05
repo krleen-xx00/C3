@@ -208,7 +208,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
       return { text: `Good morning, ${displayName}`, icon: '🌱', badge: 'Morning Calm' };
     }
     if (hour < 18) {
-      return { text: `Good afternoon, ${displayName}`, icon: '☀️', badge: 'Afternoon Breath' };
+      return { text: `Good afternoon, ${displayName}`, icon: '☀️', badge: 'Afternoon Reset' };
     }
     return { text: `Good evening, ${displayName}`, icon: '🌙', badge: 'Evening Peace' };
   };
@@ -288,8 +288,8 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
       name: 'Casti',
       role: 'Wellness Listener',
       icon: '☁️',
-      tagline: 'Non-Clinical Emotional Support & Coping',
-      description: 'A comforting, non-clinical listening ear for everyday stress, emotions, and gentle coping strategies. Never replaces human relationships.',
+      tagline: 'Non-Clinical Emotional Support & Wellness',
+      description: 'A comforting, non-clinical listening ear for everyday stress and emotions. Never replaces human relationships.',
       cardBg: isDarkMode
         ? 'bg-gradient-to-b from-[#1F1B2B] to-[#191523] border-[#382E4F] shadow-[0_6px_28px_rgba(0,0,0,0.35)] hover:shadow-[0_16px_38px_rgba(75,55,115,0.35)]'
         : 'bg-gradient-to-b from-[#F5F0FA] to-[#EDE4F7] border-[#E4D7F2] shadow-[0_6px_28px_rgba(160,130,200,0.08)] hover:shadow-[0_16px_38px_rgba(150,120,195,0.18)]',
@@ -384,7 +384,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
         <p className={`text-sm sm:text-base font-normal max-w-md mx-auto leading-relaxed ${
           isDarkMode ? 'text-[#A89A8D]' : 'text-[#705D5D]'
         }`}>
-          Welcome to your quiet space. Take a deep breath, pause for a moment, and be gentle with yourself.
+          Welcome to your quiet space. Pause for a moment and be gentle with yourself.
         </p>
       </section>
 

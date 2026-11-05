@@ -8,7 +8,7 @@ import {
   HeartHandshake,
   ShieldAlert,
   Brain,
-  Wind,
+  BookOpen,
   Smile,
   MessageSquareHeart,
   Users,
@@ -203,11 +203,11 @@ export const AboutUsView: React.FC<AboutUsViewProps> = ({
             </button>
 
             <div className="flex items-center space-x-2.5 pl-2 border-l border-neutral-300 dark:border-neutral-700">
-              <div className="w-8 h-8 rounded-full overflow-hidden p-0.5 bg-white dark:bg-[#251E1A] shadow-xs border border-emerald-800/30 dark:border-emerald-500/30 flex items-center justify-center shrink-0">
+              <div className="w-8 h-8 flex items-center justify-center shrink-0">
                 <img
                   src="/logo.png"
                   alt="Cabiao National Senior High School Seal"
-                  className="w-full h-full object-contain rounded-full"
+                  className="w-full h-full object-contain drop-shadow-xs"
                   draggable={false}
                 />
               </div>
@@ -330,11 +330,11 @@ export const AboutUsView: React.FC<AboutUsViewProps> = ({
                 >
                   {/* School Seal & Badge Header */}
                   <div className="flex items-center justify-center space-x-3 mb-3">
-                    <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-full p-1 bg-white dark:bg-[#2B231D] shadow-md border-2 border-emerald-700/40 dark:border-emerald-500/40 flex items-center justify-center shrink-0">
+                    <div className="w-14 h-14 sm:w-16 sm:h-16 flex items-center justify-center shrink-0">
                       <img
-src="/logo.png"
+                        src="/logo.png"
                         alt="Cabiao National Senior High School Seal"
-                        className="w-full h-full object-contain rounded-full select-none"
+                        className="w-full h-full object-contain select-none drop-shadow-md"
                         draggable={false}
                       />
                     </div>
@@ -618,7 +618,7 @@ src="/logo.png"
                     </p>
                   </div>
 
-                  {/* Breathing & Quiet Moments */}
+                  {/* Guided Reflection & Offline Tools */}
                   <div
                     className={`p-3.5 sm:p-4 rounded-2xl border flex flex-col justify-between ${
                       isDarkMode ? 'bg-[#1E1814]/80 border-[#332820]' : 'bg-white border-[#EAE0D3]'
@@ -626,12 +626,12 @@ src="/logo.png"
                   >
                     <div className="flex items-center space-x-2.5 mb-2">
                       <div className="w-8 h-8 rounded-lg bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 flex items-center justify-center shrink-0">
-                        <Wind className="w-4 h-4" />
+                        <BookOpen className="w-4 h-4" />
                       </div>
-                      <h4 className="font-bold text-sm leading-tight">Breathing & Quiet Moments</h4>
+                      <h4 className="font-bold text-sm leading-tight">Guided Reflection &amp; Offline Tools</h4>
                     </div>
                     <p className={`text-xs leading-relaxed ${isDarkMode ? 'text-[#B8A89A]' : 'text-[#6E5A4E]'}`}>
-                      C3 provides simple calming activities, including breathing exercises, that students can use when they need a short moment to pause and reset.
+                      C3 provides confidential self-help worksheets, including guided reflection and problem-solving guides, that students can use anytime without AI.
                     </p>
                   </div>
 

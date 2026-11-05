@@ -17,6 +17,7 @@ import {
   RegisteredCounselor,
   setActiveCounselorSession
 } from '../../data/counselorData';
+import { CabiaoLogo } from '../CabiaoLogo';
 
 interface CounselorAuthViewProps {
   isDarkMode: boolean;
@@ -106,7 +107,11 @@ export const CounselorAuthView: React.FC<CounselorAuthViewProps> = ({
 
       <div className="w-full max-w-lg relative z-10">
         {/* Header Branding */}
-        <div className="text-center mb-8 space-y-3">
+        <div className="text-center mb-6 sm:mb-8 space-y-2">
+          <div className="flex justify-center mb-2">
+            <CabiaoLogo className="w-16 h-16 sm:w-20 sm:h-20" />
+          </div>
+
           <div className="inline-flex items-center space-x-2 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider border shadow-2xs bg-amber-500/15 border-amber-500/30 text-amber-700 dark:text-amber-300">
             <Building2 className="w-3.5 h-3.5" />
             <span>Cabiao Senior High School • Guidance &amp; Counseling Services Unit</span>

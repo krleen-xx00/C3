@@ -20,21 +20,27 @@ import {
 } from 'lucide-react';
 import { User, AcademicClusterId } from '../../types';
 import { ACADEMIC_CLUSTERS } from '../../data/academicTracks';
+import { CabiaoLogo } from '../CabiaoLogo';
+import { NightModeToggle } from '../NightModeToggle';
 
 interface StudentAuthViewProps {
   isDarkMode: boolean;
   onLoginSuccess: (student: User) => void;
+  onGoToCounselorPortal?: () => void;
+  onToggleNightMode?: () => void;
 }
 
 export const StudentAuthView: React.FC<StudentAuthViewProps> = ({
   isDarkMode,
-  onLoginSuccess
+  onLoginSuccess,
+  onGoToCounselorPortal,
+  onToggleNightMode
 }) => {
   const [authMode, setAuthMode] = useState<'login' | 'signup'>('login');
 
-  // Login State
-  const [loginEmail, setLoginEmail] = useState<string>('maria.santos@cabiaoshs.edu.ph');
-  const [loginPassword, setLoginPassword] = useState<string>('student123');
+  // Login State - start unpopulated per privacy & clean page requirements
+  const [loginEmail, setLoginEmail] = useState<string>('');
+  const [loginPassword, setLoginPassword] = useState<string>('');
   const [showLoginPassword, setShowLoginPassword] = useState<boolean>(false);
   const [loginError, setLoginError] = useState<string>('');
   const [isLoggingIn, setIsLoggingIn] = useState<boolean>(false);
@@ -189,34 +195,40 @@ export const StudentAuthView: React.FC<StudentAuthViewProps> = ({
 
   return (
     <div
-      className={`min-h-screen py-10 px-4 sm:px-6 lg:px-8 flex flex-col justify-center items-center relative overflow-hidden transition-colors duration-300 ${
+      className={`min-h-screen py-8 sm:py-12 px-4 sm:px-6 lg:px-8 flex flex-col justify-center items-center relative overflow-hidden transition-colors duration-300 ${
         isDarkMode
           ? 'bg-[#120D0A] text-[#EDE5DB]'
           : 'bg-gradient-to-br from-[#FFFBF7] via-[#FDF6EE] to-[#F7EDE2] text-[#34241E]'
       }`}
     >
+      {/* Night Mode Toggle for Unauthenticated Screen */}
+      {onToggleNightMode && (
+        <div className="absolute top-4 right-4 z-20">
+          <NightModeToggle isDarkMode={isDarkMode} onToggle={onToggleNightMode} className="relative" />
+        </div>
+      )}
+
       {/* Background Soft Glow Accents */}
       <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-amber-500/10 rounded-full blur-3xl pointer-events-none" />
       <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none" />
 
       <div className="w-full max-w-xl relative z-10">
         {/* Header Branding */}
-        <div className="text-center mb-8 space-y-3">
-          <div className="inline-flex items-center space-x-2 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider border shadow-2xs bg-amber-500/15 border-amber-500/30 text-amber-700 dark:text-amber-300">
-            <GraduationCap className="w-3.5 h-3.5" />
-            <span>Cabiao Senior High School • DepEd Portal</span>
+        <div className="text-center mb-6 sm:mb-8 space-y-2">
+          {/* Official School Seal */}
+          <div className="flex justify-center mb-2">
+            <CabiaoLogo className="w-20 h-20 sm:w-24 sm:h-24" />
           </div>
 
-          <h1 className="text-3xl sm:text-4xl font-black tracking-tight leading-tight">
+          <div>
+            <p className="text-xs sm:text-sm font-bold uppercase tracking-wider text-emerald-800 dark:text-emerald-400">
+              Cabiao National Senior High School
+            </p>
+          </div>
+
+          <h1 className="text-2xl sm:text-3xl font-black tracking-tight leading-tight">
             C3 Student Wellbeing &amp; Learning Hub
           </h1>
-          <p
-            className={`text-xs sm:text-sm max-w-md mx-auto leading-relaxed ${
-              isDarkMode ? 'text-[#B8A696]' : 'text-[#7D6B5E]'
-            }`}
-          >
-            Sign in with your school account to access your AI companions (Cali, Casti, Cedi), daily reflections, and confidential self-help tools.
-          </p>
 
           {/* Quick Tab Switcher: Sign In vs Sign Up */}
           <div className="pt-2 flex justify-center">
@@ -651,17 +663,32 @@ export const StudentAuthView: React.FC<StudentAuthViewProps> = ({
           </div>
         </div>
 
+        {/* Counselor Access Option */}
+        {onGoToCounselorPortal && (
+          <div className="mt-4 text-center">
+            <button
+              type="button"
+              onClick={onGoToCounselorPortal}
+              className={`text-xs font-semibold hover:underline cursor-pointer transition-colors ${
+                isDarkMode ? 'text-amber-400 hover:text-amber-300' : 'text-amber-800 hover:text-amber-900'
+              }`}
+            >
+              School Counselor or Administrator? Access Counselor Portal &rarr;
+            </button>
+          </div>
+        )}
+
         {/* Footer Disclosures */}
         <div
-          className={`mt-6 text-center text-[11px] space-y-1 ${
+          className={`mt-5 text-center text-[11px] space-y-1 ${
             isDarkMode ? 'text-[#8A796B]' : 'text-[#8C7665]'
           }`}
         >
           <p>
-            Republic of the Philippines • Department of Education • Region III – Central Luzon
+            Republic of the Philippines • Cabiao Senior High School
           </p>
           <p>
-            Cabiao Senior High School — Guidance &amp; Counseling Services Unit • Compliant with RA 10173 (Data Privacy Act)
+            Guidance &amp; Counseling Services Unit • Compliant with RA 10173 (Data Privacy Act)
           </p>
         </div>
       </div>

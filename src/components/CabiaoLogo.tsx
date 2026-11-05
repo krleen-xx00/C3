@@ -8,22 +8,15 @@ interface CabiaoLogoProps {
 }
 
 export const CabiaoLogo: React.FC<CabiaoLogoProps> = ({
-  className = "w-10 h-10 sm:w-11 sm:h-11",
+  className = "w-16 h-16 sm:w-20 sm:h-20",
   alt = "Cabiao National Senior High School Official Logo",
-  showRing = false,
 }) => {
   return (
-    <div
-      className={`relative inline-flex items-center justify-center shrink-0 rounded-full overflow-hidden ${
-        showRing
-          ? 'ring-2 ring-emerald-700/40 dark:ring-emerald-400/50 shadow-sm'
-          : ''
-      } ${className}`}
-    >
+    <div className={`relative inline-flex items-center justify-center shrink-0 ${className}`}>
       <img
         src="/logo.png"
         alt={alt}
-        className="w-full h-full object-contain select-none pointer-events-none"
+        className="w-full h-full object-contain select-none pointer-events-none drop-shadow-sm"
         loading="eager"
         draggable={false}
       />

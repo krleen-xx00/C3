@@ -55,17 +55,11 @@ export const TopNavbar: React.FC<TopNavbarProps> = ({
           }
         >
           {/* Logo seal container */}
-          <div
-            className={`w-9 h-9 sm:w-11 sm:h-11 rounded-full p-0.5 flex items-center justify-center transition-all duration-300 border shadow-xs group-hover:scale-105 shrink-0 ${
-              isDarkMode
-                ? 'bg-[#221D19] border-[#2E4A3B]'
-                : 'bg-white border-[#0e2c1f]/25'
-            }`}
-          >
+          <div className="w-9 h-9 sm:w-11 sm:h-11 flex items-center justify-center transition-transform duration-300 group-hover:scale-105 shrink-0">
             <img
               src="/logo.png"
               alt="Cabiao National Senior High School Seal"
-              className="w-full h-full object-cover rounded-full"
+              className="w-full h-full object-contain select-none pointer-events-none drop-shadow-xs"
               draggable={false}
             />
           </div>

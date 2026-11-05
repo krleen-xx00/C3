@@ -49,8 +49,7 @@ export default function App() {
   const [isStudentAuthenticated, setIsStudentAuthenticated] = useState<boolean>(() => {
     try {
       const auth = localStorage.getItem('c3-student-authenticated');
-      if (auth !== null) return auth === 'true';
-      return !!localStorage.getItem('c3-student-user');
+      return auth === 'true';
     } catch {
       return false;
     }
@@ -298,33 +297,37 @@ export default function App() {
         }`} />
       </div>
 
-      {/* Unified Top Navigation Header: School Seal & Title + ViewSwitcher + Deployment Mode + NightMode Toggle */}
-      <TopNavbar
-        viewMode={effectiveViewMode}
-        onViewChange={handleViewChange}
-        isDarkMode={isDarkMode}
-        onToggleNightMode={toggleNightMode}
-        currentUser={isStudentAuthenticated ? currentUser : undefined}
-        onOpenStudentAuth={() => setIsStudentAuthModalOpen(true)}
-        onStudentLogout={isStudentAuthenticated ? handleStudentLogout : undefined}
-        deploymentMode={deploymentMode}
-        onSelectDeploymentMode={handleSelectDeploymentMode}
-      />
+      {/* Unified Top Navigation Header: Rendered only after authentication or on the Counselor portal */}
+      {(isStudentAuthenticated || effectiveViewMode === 'counselor') && (
+        <TopNavbar
+          viewMode={effectiveViewMode}
+          onViewChange={handleViewChange}
+          isDarkMode={isDarkMode}
+          onToggleNightMode={toggleNightMode}
+          currentUser={isStudentAuthenticated ? currentUser : undefined}
+          onOpenStudentAuth={() => setIsStudentAuthModalOpen(true)}
+          onStudentLogout={isStudentAuthenticated ? handleStudentLogout : undefined}
+          deploymentMode={deploymentMode}
+          onSelectDeploymentMode={handleSelectDeploymentMode}
+        />
+      )}
 
       {/* Main Container */}
       <main className="relative z-10 w-full pb-16 md:pb-0">
-        {effectiveViewMode === 'about' ? (
+        {!isStudentAuthenticated && effectiveViewMode !== 'counselor' ? (
+          <StudentAuthView
+            isDarkMode={isDarkMode}
+            onLoginSuccess={handleStudentAuthSuccess}
+            onGoToCounselorPortal={() => setViewMode('counselor')}
+            onToggleNightMode={toggleNightMode}
+          />
+        ) : effectiveViewMode === 'about' ? (
           <AboutUsView
             isDarkMode={isDarkMode}
             onBackToDashboard={() => handleViewChange('student')}
           />
         ) : effectiveViewMode === 'counselor' ? (
           <CounselorDashboard isDarkMode={isDarkMode} />
-        ) : !isStudentAuthenticated ? (
-          <StudentAuthView
-            isDarkMode={isDarkMode}
-            onLoginSuccess={handleStudentAuthSuccess}
-          />
         ) : effectiveViewMode === 'companions' ? (
           <CompanionRoomView
             currentUser={currentUser}
@@ -405,12 +408,14 @@ export default function App() {
         isDarkMode={isDarkMode}
       />
 
-      {/* Floating Deployment Route Simulator Badge */}
-      <RouteBadge
-        deploymentMode={deploymentMode}
-        onSelectDeploymentMode={handleSelectDeploymentMode}
-        isDarkMode={isDarkMode}
-      />
+      {/* Floating Deployment Route Simulator Badge: Shown when authenticated or in counselor portal */}
+      {(isStudentAuthenticated || effectiveViewMode === 'counselor') && (
+        <RouteBadge
+          deploymentMode={deploymentMode}
+          onSelectDeploymentMode={handleSelectDeploymentMode}
+          isDarkMode={isDarkMode}
+        />
+      )}
 
     </div>
   );

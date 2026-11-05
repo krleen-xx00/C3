@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { motion, AnimatePresence } from 'motion/react';
-import { Shield, Sparkles, BookOpen, HeartHandshake, CheckCircle, X, ChevronDown, ChevronUp, Clock, AlertCircle } from 'lucide-react';
+import { motion } from 'motion/react';
+import { Shield, HeartHandshake, CheckCircle, X } from 'lucide-react';
 import { RiskTier, User } from '../../types';
 
 interface TieredResourceCardProps {
@@ -20,9 +20,12 @@ export const TieredResourceCard: React.FC<TieredResourceCardProps> = ({
   onConnectGuidance,
   triggerContext
 }) => {
-  const [activeTab, setActiveTab] = useState<'ground' | 'journal'>('ground');
   const [tier2Status, setTier2Status] = useState<'prompt' | 'connected' | 'dismissed'>('prompt');
-  const [isExpanded, setIsExpanded] = useState<boolean>(true);
+
+  // Only Tier 2 (moderate distress) offers confidential connection with the Guidance Office.
+  if (tier !== 2 || tier2Status === 'dismissed') {
+    return null;
+  }
 
   const handleConnect = async () => {
     setTier2Status('connected');
@@ -44,7 +47,7 @@ export const TieredResourceCard: React.FC<TieredResourceCardProps> = ({
         })
       });
     } catch (e) {
-      console.error("Error creating referral ticket:", e);
+      console.error('Error creating referral ticket:', e);
     }
   };
 
@@ -65,7 +68,7 @@ export const TieredResourceCard: React.FC<TieredResourceCardProps> = ({
         })
       });
     } catch (e) {
-      console.error("Error logging anonymized risk event:", e);
+      console.error('Error logging anonymized risk event:', e);
     }
   };
 
@@ -74,70 +77,66 @@ export const TieredResourceCard: React.FC<TieredResourceCardProps> = ({
       initial={{ opacity: 0, y: 10, scale: 0.98 }}
       animate={{ opacity: 1, y: 0, scale: 1 }}
       exit={{ opacity: 0, y: -10 }}
-      className={`rounded-3xl border transition-all overflow-hidden ${
-        tier === 2
-          ? isDarkMode
-            ? 'bg-[#201815] border-amber-900/50 shadow-lg'
-            : 'bg-gradient-to-br from-amber-50/90 via-[#FFFDF9] to-orange-50/70 border-amber-200/80 shadow-md'
-          : isDarkMode
-          ? 'bg-[#1A1E1B] border-emerald-900/40 shadow-md'
-          : 'bg-gradient-to-br from-emerald-50/80 via-[#FAFDFB] to-teal-50/60 border-emerald-200/70 shadow-sm'
+      className={`rounded-3xl border transition-all overflow-hidden p-4 sm:p-5 shadow-lg ${
+        isDarkMode
+          ? 'bg-[#201815] border-amber-900/50 text-[#EDE5DB]'
+          : 'bg-gradient-to-br from-amber-50/90 via-[#FFFDF9] to-orange-50/70 border-amber-200/80 text-[#3D2C2C]'
       }`}
     >
-      {/* Top Header */}
-      <div className="p-4 sm:p-5 flex items-center justify-between">
+      {/* Header */}
+      <div className="flex items-center justify-between pb-3">
         <div className="flex items-center space-x-3">
-          <div className={`w-9 h-9 rounded-2xl flex items-center justify-center ${
-            tier === 2
-              ? isDarkMode ? 'bg-amber-950/80 text-amber-300' : 'bg-amber-100 text-amber-800'
-              : isDarkMode ? 'bg-emerald-950/80 text-emerald-300' : 'bg-emerald-100 text-emerald-800'
-          }`}>
-            {tier === 2 ? <HeartHandshake className="w-5 h-5" /> : <Sparkles className="w-5 h-5" />}
+          <div
+            className={`w-9 h-9 rounded-2xl flex items-center justify-center shrink-0 ${
+              isDarkMode ? 'bg-amber-950/80 text-amber-300' : 'bg-amber-100 text-amber-800'
+            }`}
+          >
+            <HeartHandshake className="w-5 h-5" />
           </div>
           <div>
-            <div className="flex items-center space-x-2">
-              <span className={`text-[11px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full ${
-                tier === 2
-                  ? isDarkMode ? 'bg-amber-900/40 text-amber-300 border border-amber-700/40' : 'bg-amber-100 text-amber-900 border border-amber-300/60'
-                  : isDarkMode ? 'bg-emerald-900/40 text-emerald-300 border border-emerald-700/40' : 'bg-emerald-100 text-emerald-900 border border-emerald-300/60'
-              }`}>
-                {tier === 2 ? 'Gentle Support & Check-In' : 'Calm Coping Space'}
-              </span>
-            </div>
-            <h4 className="text-xs sm:text-sm font-bold text-slate-900 dark:text-[#EDE5DB] mt-0.5">
-              {tier === 2
-                ? 'Take a gentle moment. You don\'t have to carry this alone.'
-                : 'Here are a few gentle practices to help you reset.'}
+            <span
+              className={`text-[11px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full ${
+                isDarkMode
+                  ? 'bg-amber-900/40 text-amber-300 border border-amber-700/40'
+                  : 'bg-amber-100 text-amber-900 border border-amber-300/60'
+              }`}
+            >
+              Gentle Support &amp; Check-In
+            </span>
+            <h4 className="text-xs sm:text-sm font-bold mt-0.5">
+              Take a gentle moment. You don&apos;t have to carry this alone.
             </h4>
           </div>
         </div>
 
         <button
           type="button"
-          onClick={() => setIsExpanded(!isExpanded)}
-          className="p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-xl transition-colors"
-          title={isExpanded ? 'Collapse' : 'Expand'}
+          onClick={handleDecline}
+          className="p-1.5 text-stone-400 hover:text-stone-600 dark:hover:text-stone-200 rounded-xl transition-colors cursor-pointer"
+          title="Dismiss"
         >
-          {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+          <X className="w-4 h-4" />
         </button>
       </div>
 
-      {/* Tier 2 Guidance Prompt Section (If Tier 2) */}
-      {tier === 2 && tier2Status === 'prompt' && (
-        <div className={`mx-4 sm:mx-5 mb-4 p-4 rounded-2xl border transition-all ${
-          isDarkMode
-            ? 'bg-[#291E19] border-amber-700/50 text-amber-100'
-            : 'bg-amber-50/90 border-amber-300 text-amber-950'
-        }`}>
+      {/* Guidance Connection Prompt Body */}
+      {tier2Status === 'prompt' && (
+        <div
+          className={`p-4 rounded-2xl border transition-all ${
+            isDarkMode
+              ? 'bg-[#291E19] border-amber-700/50 text-amber-100'
+              : 'bg-amber-50/90 border-amber-300 text-amber-950'
+          }`}
+        >
           <div className="flex items-start space-x-3">
-            <div className="p-1.5 bg-amber-400/20 rounded-xl text-amber-600 dark:text-amber-300 flex-shrink-0 mt-0.5">
+            <div className="p-1.5 bg-amber-400/20 rounded-xl text-amber-600 dark:text-amber-300 shrink-0 mt-0.5">
               <Shield className="w-4 h-4" />
             </div>
             <div className="flex-1">
               <p className="text-xs sm:text-sm font-semibold leading-relaxed">
                 It sounds like things are heavy right now. Would you like to talk to someone at the Guidance Office?
               </p>
-              <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
+              <p className="text-[11px] text-stone-500 dark:text-stone-400 mt-1">
                 Your guidance counselor can provide confidential, warm support.
               </p>
 
@@ -145,17 +144,17 @@ export const TieredResourceCard: React.FC<TieredResourceCardProps> = ({
                 <button
                   type="button"
                   onClick={handleConnect}
-                  className="px-4 py-2 bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-700 hover:to-orange-700 text-white text-xs font-bold rounded-xl shadow-xs transition-all active:scale-95"
+                  className="px-4 py-2 bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-700 hover:to-orange-700 text-white text-xs font-bold rounded-xl shadow-xs transition-all active:scale-95 cursor-pointer"
                 >
                   Yes, connect me
                 </button>
                 <button
                   type="button"
                   onClick={handleDecline}
-                  className={`px-3.5 py-2 text-xs font-semibold rounded-xl border transition-colors ${
+                  className={`px-3.5 py-2 text-xs font-semibold rounded-xl border transition-colors cursor-pointer ${
                     isDarkMode
-                      ? 'border-slate-700 text-slate-300 hover:bg-slate-800'
-                      : 'border-slate-300 text-slate-700 hover:bg-white'
+                      ? 'border-stone-700 text-stone-300 hover:bg-stone-800'
+                      : 'border-stone-300 text-stone-700 hover:bg-white'
                   }`}
                 >
                   Not right now
@@ -166,14 +165,14 @@ export const TieredResourceCard: React.FC<TieredResourceCardProps> = ({
         </div>
       )}
 
-      {/* Tier 2 Connected Confirmation */}
-      {tier === 2 && tier2Status === 'connected' && (
+      {/* Connected Confirmation */}
+      {tier2Status === 'connected' && (
         <motion.div
           initial={{ opacity: 0, height: 0 }}
           animate={{ opacity: 1, height: 'auto' }}
-          className="mx-4 sm:mx-5 mb-4 p-3.5 bg-emerald-50 dark:bg-emerald-950/50 border border-emerald-300 dark:border-emerald-800 rounded-2xl flex items-center space-x-3 text-emerald-900 dark:text-emerald-200"
+          className="p-3.5 bg-emerald-50 dark:bg-emerald-950/50 border border-emerald-300 dark:border-emerald-800 rounded-2xl flex items-center space-x-3 text-emerald-900 dark:text-emerald-200"
         >
-          <CheckCircle className="w-5 h-5 text-emerald-600 dark:text-emerald-400 flex-shrink-0" />
+          <CheckCircle className="w-5 h-5 text-emerald-600 dark:text-emerald-400 shrink-0" />
           <div className="text-xs font-medium">
             <p className="font-bold">Referral Sent</p>
             <p className="text-[11px] text-emerald-700 dark:text-emerald-300">
@@ -182,98 +181,6 @@ export const TieredResourceCard: React.FC<TieredResourceCardProps> = ({
           </div>
         </motion.div>
       )}
-
-      {/* Expandable In-App Coping Resources (Tier 1 & 2) */}
-      <AnimatePresence>
-        {isExpanded && (
-          <motion.div
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: 'auto' }}
-            exit={{ opacity: 0, height: 0 }}
-            className="px-4 sm:px-5 pb-5 pt-1 space-y-4"
-          >
-            {/* Tabs */}
-            <div className="flex items-center space-x-1.5 p-1 bg-black/5 dark:bg-white/5 rounded-2xl max-w-xs">
-              <button
-                type="button"
-                onClick={() => setActiveTab('ground')}
-                className={`flex-1 py-1.5 px-3 rounded-xl text-xs font-bold transition-all ${
-                  activeTab === 'ground'
-                    ? isDarkMode
-                      ? 'bg-slate-800 text-white shadow-xs'
-                      : 'bg-white text-slate-900 shadow-xs'
-                    : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
-                }`}
-              >
-                🌿 5-4-3-2-1 Grounding
-              </button>
-              <button
-                type="button"
-                onClick={() => setActiveTab('journal')}
-                className={`flex-1 py-1.5 px-3 rounded-xl text-xs font-bold transition-all ${
-                  activeTab === 'journal'
-                    ? isDarkMode
-                      ? 'bg-slate-800 text-white shadow-xs'
-                      : 'bg-white text-slate-900 shadow-xs'
-                    : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
-                }`}
-              >
-                📝 Micro Prompt
-              </button>
-            </div>
-
-            {/* Tab 2: 5-4-3-2-1 Sensory Grounding */}
-            {activeTab === 'ground' && (
-              <div className={`p-4 rounded-2xl border text-xs space-y-2.5 transition-all ${
-                isDarkMode ? 'bg-black/20 border-slate-800' : 'bg-white/80 border-slate-200/80'
-              }`}>
-                <p className="font-bold text-slate-900 dark:text-[#EDE5DB] mb-1">
-                  5-4-3-2-1 Sensory Grounding:
-                </p>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-slate-700 dark:text-slate-300">
-                  <div className="p-2 rounded-xl bg-sky-500/10 border border-sky-500/20 flex items-center space-x-2">
-                    <span className="font-bold text-sky-600 dark:text-sky-400">5</span>
-                    <span>Things you can <strong>see</strong> around you</span>
-                  </div>
-                  <div className="p-2 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center space-x-2">
-                    <span className="font-bold text-amber-600 dark:text-amber-400">4</span>
-                    <span>Things you can physically <strong>touch</strong></span>
-                  </div>
-                  <div className="p-2 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center space-x-2">
-                    <span className="font-bold text-emerald-600 dark:text-emerald-400">3</span>
-                    <span>Things you can <strong>hear</strong> right now</span>
-                  </div>
-                  <div className="p-2 rounded-xl bg-purple-500/10 border border-purple-500/20 flex items-center space-x-2">
-                    <span className="font-bold text-purple-600 dark:text-purple-400">2</span>
-                    <span>Things you can <strong>smell</strong></span>
-                  </div>
-                  <div className="p-2 rounded-xl bg-rose-500/10 border border-rose-500/20 flex items-center space-x-2 sm:col-span-2">
-                    <span className="font-bold text-rose-600 dark:text-rose-400">1</span>
-                    <span>Positive truth or quality you appreciate about yourself</span>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Tab 3: Micro Reflection / Journaling Prompt */}
-            {activeTab === 'journal' && (
-              <div className={`p-4 rounded-2xl border text-xs space-y-2 transition-all ${
-                isDarkMode ? 'bg-black/20 border-slate-800' : 'bg-white/80 border-slate-200/80'
-              }`}>
-                <p className="font-bold text-slate-900 dark:text-[#EDE5DB]">
-                  Gentle 1-Minute Reflection Prompt:
-                </p>
-                <blockquote className="italic text-slate-600 dark:text-slate-300 p-2.5 rounded-xl bg-black/5 dark:bg-white/5 border-l-4 border-amber-400">
-                  "What is one small thing within your reach today that would give you 5 minutes of comfort?"
-                </blockquote>
-                <p className="text-[11px] text-slate-500 dark:text-slate-400">
-                  You don't need to write a long paragraph. Even drinking a glass of cold water or standing in the fresh air counts as a victory.
-                </p>
-              </div>
-            )}
-          </motion.div>
-        )}
-      </AnimatePresence>
     </motion.div>
   );
 };
