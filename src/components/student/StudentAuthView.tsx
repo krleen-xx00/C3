@@ -36,7 +36,7 @@ export const StudentAuthView: React.FC<StudentAuthViewProps> = ({
   onGoToCounselorPortal,
   onToggleNightMode
 }) => {
-  const [authMode, setAuthMode] = useState<'login' | 'signup'>('login');
+  const [authMode, setAuthMode] = useState<'login' | 'signup'>('signup');
 
   // Login State - start unpopulated per privacy & clean page requirements
   const [loginEmail, setLoginEmail] = useState<string>('');
@@ -222,7 +222,7 @@ export const StudentAuthView: React.FC<StudentAuthViewProps> = ({
 
           <div>
             <p className="text-xs sm:text-sm font-bold uppercase tracking-wider text-emerald-800 dark:text-emerald-400">
-              Cabiao National Senior High School
+              Cabiao Senior High School
             </p>
           </div>
 
@@ -230,31 +230,13 @@ export const StudentAuthView: React.FC<StudentAuthViewProps> = ({
             C3 Student Wellbeing &amp; Learning Hub
           </h1>
 
-          {/* Quick Tab Switcher: Sign In vs Sign Up */}
+          {/* Quick Tab Switcher: Registration First vs Sign In */}
           <div className="pt-2 flex justify-center">
             <div
               className={`p-1 rounded-2xl border flex items-center space-x-1 shadow-xs ${
                 isDarkMode ? 'bg-[#1C1613] border-[#382E27]' : 'bg-white border-[#E8DDD0]'
               }`}
             >
-              <button
-                type="button"
-                onClick={() => {
-                  setAuthMode('login');
-                  setLoginError('');
-                }}
-                className={`px-5 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all flex items-center space-x-1.5 cursor-pointer ${
-                  authMode === 'login'
-                    ? 'bg-amber-500 text-stone-950 shadow-sm'
-                    : isDarkMode
-                    ? 'text-[#A09080] hover:text-[#EDE5DB]'
-                    : 'text-stone-600 hover:text-stone-900'
-                }`}
-              >
-                <LogIn className="w-4 h-4" />
-                <span>Student Sign In</span>
-              </button>
-
               <button
                 type="button"
                 onClick={() => {
@@ -271,6 +253,24 @@ export const StudentAuthView: React.FC<StudentAuthViewProps> = ({
               >
                 <UserPlus className="w-4 h-4" />
                 <span>New Student Registration</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setAuthMode('login');
+                  setLoginError('');
+                }}
+                className={`px-5 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all flex items-center space-x-1.5 cursor-pointer ${
+                  authMode === 'login'
+                    ? 'bg-amber-500 text-stone-950 shadow-sm'
+                    : isDarkMode
+                    ? 'text-[#A09080] hover:text-[#EDE5DB]'
+                    : 'text-stone-600 hover:text-stone-900'
+                }`}
+              >
+                <LogIn className="w-4 h-4" />
+                <span>Student Sign In</span>
               </button>
             </div>
           </div>
@@ -375,6 +375,21 @@ export const StudentAuthView: React.FC<StudentAuthViewProps> = ({
                       <LogIn className="w-4 h-4" />
                       <span>{isLoggingIn ? 'Verifying Account...' : 'Sign In to Student Hub'}</span>
                     </button>
+
+                    <div className="text-center pt-1">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setAuthMode('signup');
+                          setSignUpError('');
+                        }}
+                        className={`text-xs font-semibold hover:underline cursor-pointer ${
+                          isDarkMode ? 'text-amber-400 hover:text-amber-300' : 'text-amber-800 hover:text-amber-900'
+                        }`}
+                      >
+                        New student? Create your account here &rarr;
+                      </button>
+                    </div>
                   </form>
 
                   {/* 1-Click Demo Login for Thesis Panel Evaluators */}
@@ -656,6 +671,21 @@ export const StudentAuthView: React.FC<StudentAuthViewProps> = ({
                       <UserPlus className="w-4 h-4" />
                       <span>{isSigningUp ? 'Creating Account...' : 'Complete Registration & Enter Hub'}</span>
                     </button>
+
+                    <div className="text-center pt-1">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setAuthMode('login');
+                          setLoginError('');
+                        }}
+                        className={`text-xs font-semibold hover:underline cursor-pointer ${
+                          isDarkMode ? 'text-emerald-400 hover:text-emerald-300' : 'text-emerald-700 hover:text-emerald-800'
+                        }`}
+                      >
+                        Already registered? Sign In to your account &rarr;
+                      </button>
+                    </div>
                   </form>
                 </motion.div>
               )}

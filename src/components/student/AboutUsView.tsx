@@ -206,7 +206,7 @@ export const AboutUsView: React.FC<AboutUsViewProps> = ({
               <div className="w-8 h-8 flex items-center justify-center shrink-0">
                 <img
                   src="/logo.png"
-                  alt="Cabiao National Senior High School Seal"
+                  alt="Cabiao Senior High School Seal"
                   className="w-full h-full object-contain drop-shadow-xs"
                   draggable={false}
                 />
@@ -216,7 +216,7 @@ export const AboutUsView: React.FC<AboutUsViewProps> = ({
                   Project Presentation
                 </span>
                 <span className={`block text-[11px] font-semibold ${isDarkMode ? 'text-[#C7B7A7]' : 'text-[#5C483C]'}`}>
-                  Cabiao National Senior High School
+                  Cabiao Senior High School
                 </span>
               </div>
             </div>
@@ -333,7 +333,7 @@ export const AboutUsView: React.FC<AboutUsViewProps> = ({
                     <div className="w-14 h-14 sm:w-16 sm:h-16 flex items-center justify-center shrink-0">
                       <img
                         src="/logo.png"
-                        alt="Cabiao National Senior High School Seal"
+                        alt="Cabiao Senior High School Seal"
                         className="w-full h-full object-contain select-none drop-shadow-md"
                         draggable={false}
                       />
@@ -344,7 +344,7 @@ export const AboutUsView: React.FC<AboutUsViewProps> = ({
                         <span>Senior High School Research Project</span>
                       </div>
                       <div className={`text-xs font-semibold mt-0.5 ${isDarkMode ? 'text-[#D0C0B0]' : 'text-[#634E41]'}`}>
-                        Cabiao National Senior High School
+                        Cabiao Senior High School
                       </div>
                     </div>
                   </div>

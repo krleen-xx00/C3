@@ -45,8 +45,8 @@ export const TopNavbar: React.FC<TopNavbarProps> = ({
           className="flex items-center space-x-1.5 sm:space-x-3 cursor-pointer shrink-0 group select-none text-left focus:outline-none"
           title={
             deploymentMode === 'counselor'
-              ? 'Cabiao National Senior High School - Guidance & Counseling Portal'
-              : 'Cabiao National Senior High School - Student Wellness Haven'
+              ? 'Cabiao Senior High School - Guidance & Counseling Portal'
+              : 'Cabiao Senior High School - Student Wellness Haven'
           }
           aria-label={
             deploymentMode === 'counselor'
@@ -58,7 +58,7 @@ export const TopNavbar: React.FC<TopNavbarProps> = ({
           <div className="w-9 h-9 sm:w-11 sm:h-11 flex items-center justify-center transition-transform duration-300 group-hover:scale-105 shrink-0">
             <img
               src="/logo.png"
-              alt="Cabiao National Senior High School Seal"
+              alt="Cabiao Senior High School Seal"
               className="w-full h-full object-contain select-none pointer-events-none drop-shadow-xs"
               draggable={false}
             />
@@ -71,7 +71,7 @@ export const TopNavbar: React.FC<TopNavbarProps> = ({
                 isDarkMode ? 'text-[#B4D7C1]' : 'text-[#0e2c1f]'
               }`}
             >
-              Cabiao National Senior High School
+              Cabiao Senior High School
             </span>
             <span
               className={`text-[10px] font-medium leading-tight transition-colors ${

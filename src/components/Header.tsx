@@ -63,7 +63,7 @@ export const Header: React.FC<HeaderProps> = ({
             <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl overflow-hidden shadow-md flex-shrink-0 ring-1 ring-black/5 dark:ring-white/10 border border-slate-200/80 dark:border-slate-700/80 bg-slate-100 dark:bg-slate-800 transition-all duration-300 flex items-center justify-center">
               <img
                 src="/logo.png"
-                alt="Cabiao National Senior High School logo"
+                alt="Cabiao Senior High School logo"
                 className="w-full h-full object-cover"
                 draggable={false}
               />

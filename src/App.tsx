@@ -40,7 +40,7 @@ export default function App() {
   const [deploymentMode, setDeploymentMode] = useState<DeploymentMode>(getInitialDeploymentMode);
   const [currentUser, setCurrentUser] = useState<User>(() => {
     try {
-      const saved = localStorage.getItem('c3-student-user');
+      const saved = sessionStorage.getItem('c3-student-user') || localStorage.getItem('c3-student-user');
       if (saved) return JSON.parse(saved);
     } catch {}
     return MOCK_USERS[0]; // Maria Santos (Student)
@@ -48,7 +48,10 @@ export default function App() {
 
   const [isStudentAuthenticated, setIsStudentAuthenticated] = useState<boolean>(() => {
     try {
-      const auth = localStorage.getItem('c3-student-authenticated');
+      // Actively purge legacy persistent localStorage auth key so any mobile or desktop link visit starts on sign-up
+      localStorage.removeItem('c3-student-authenticated');
+      // Only retain authentication within an active session
+      const auth = sessionStorage.getItem('c3-student-authenticated');
       return auth === 'true';
     } catch {
       return false;
@@ -59,8 +62,9 @@ export default function App() {
     setCurrentUser(user);
     setIsStudentAuthenticated(true);
     try {
+      sessionStorage.setItem('c3-student-user', JSON.stringify(user));
+      sessionStorage.setItem('c3-student-authenticated', 'true');
       localStorage.setItem('c3-student-user', JSON.stringify(user));
-      localStorage.setItem('c3-student-authenticated', 'true');
       if (user.name) {
         const first = user.name.split(' ')[0];
         setPreferredName(first);
@@ -76,7 +80,9 @@ export default function App() {
   const handleStudentLogout = () => {
     setIsStudentAuthenticated(false);
     try {
-      localStorage.setItem('c3-student-authenticated', 'false');
+      sessionStorage.removeItem('c3-student-authenticated');
+      sessionStorage.removeItem('c3-student-user');
+      localStorage.removeItem('c3-student-authenticated');
     } catch {}
     setViewMode('student');
   };

@@ -2,7 +2,7 @@ import { AcademicCluster, AcademicClusterId, AcademicTrackId } from '../types';
 
 // New DepEd K-12 curriculum academic tracks and TechPro (Technical-Professional)
 // career clusters, modeled after the Senor High School curriculum update for
-// Cabiao National Senior High School.
+// Cabiao Senior High School.
 
 export const ACADEMIC_CLUSTERS: AcademicCluster[] = [
   // Academic Track

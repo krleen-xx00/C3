@@ -97,6 +97,14 @@ export interface ChatMessage {
   isCrisisTriggered?: boolean;
   riskTier?: RiskTier;
   riskTriggerPhrase?: string;
+  safetyNotice?: string;
+  screeningResult?: {
+    priority: 'NO_FLAG' | 'REVIEW_REQUIRED' | 'URGENT_REVIEW';
+    category?: string;
+    flagId?: string;
+    savedToDb?: boolean;
+    safetyNotice?: string;
+  };
 }
 
 export type MoodType = 'energetic' | 'calm' | 'anxious' | 'sad' | 'tired';

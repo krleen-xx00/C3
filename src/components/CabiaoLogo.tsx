@@ -9,7 +9,7 @@ interface CabiaoLogoProps {
 
 export const CabiaoLogo: React.FC<CabiaoLogoProps> = ({
   className = "w-16 h-16 sm:w-20 sm:h-20",
-  alt = "Cabiao National Senior High School Official Logo",
+  alt = "Cabiao Senior High School Official Logo",
 }) => {
   return (
     <div className={`relative inline-flex items-center justify-center shrink-0 ${className}`}>

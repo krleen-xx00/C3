@@ -9,6 +9,8 @@ import { ACADEMIC_CLUSTERS, getClusterById } from "./src/data/academicTracks.js"
 import { db } from "./server/db.js";
 import { checkAntiAttachmentPhrase } from "./server/aiFallback.js";
 import { FlaggedRiskItem } from "./src/data/flaggedRiskData.js";
+import { firestoreSafetyService } from "./server/firestoreSafetyService.js";
+import { screenStudentMessage } from "./server/safetyClassifier.js";
 
 // Build a track-aware system prompt section so companions can reference the
 // student's real academic track / TechPro career cluster, coursework, and load.
@@ -373,12 +375,68 @@ async function startServer() {
         Boolean(isDependencyDeescalation)
       );
 
-      // Analyze Risk Tier based on message
-      const riskAnalysis = analyzeRiskTier(message);
-      let detectedTier = riskAnalysis.tier;
-      let detectedTriggerPhrase = riskAnalysis.triggerPhrase || "";
+      // 4. Separate server-side Gemini Safety Screening Evaluator (multi-turn, contextual, multi-lingual)
+      const screeningHistory = (Array.isArray(history) ? history : []).map((h: any) => ({
+        role: h.sender === 'user' ? 'user' : 'model',
+        text: typeof h.text === 'string' ? h.text : ''
+      }));
 
-      // Build message payload for Gemini multi-turn conversation
+      const screeningResult = await screenStudentMessage(ai, message, screeningHistory, companion.name);
+
+      let flagPersistenceStatus: 'none' | 'saved' | 'failed' = 'none';
+      let createdFlagId: string | null = null;
+      let honestSafetyNotice = '';
+
+      if (screeningResult.priority === 'URGENT_REVIEW' || screeningResult.priority === 'REVIEW_REQUIRED') {
+        const rawNumeric = String(studentId || '8921').replace(/\D/g, '');
+        const anonStudentId = `STU-${rawNumeric ? rawNumeric.slice(-4).padStart(4, '0') : '8921'}`;
+
+        try {
+          const flagRecord = await firestoreSafetyService.createSafetyFlag({
+            studentRef: anonStudentId,
+            studentName: studentName || 'Student User',
+            gradeSection: gradeSection || 'Grade 12 - Senior High School',
+            companion: companion.name as any,
+            priority: screeningResult.priority,
+            category: screeningResult.category,
+            contextSnippet: screeningResult.contextExcerpt || message.slice(0, 160),
+            triggerPhrase: screeningResult.triggerPhrase || message.slice(0, 80),
+            isDemoRecord: false
+          });
+
+          flagPersistenceStatus = 'saved';
+          createdFlagId = flagRecord.id;
+
+          if (screeningResult.priority === 'URGENT_REVIEW') {
+            honestSafetyNotice = "Your well-being is our highest priority. A confidential safety record has been securely saved in the school database for authorized guidance counselor review during school hours. Note: C3 is an automated educational prototype and is not monitored 24/7. If you are in immediate distress, please call the 24/7 NCMH crisis hotline at 1553 or 0917-899-USAP.";
+          } else {
+            honestSafetyNotice = "A confidential note has been logged for authorized school counselor review so someone can check in with you during regular school hours.";
+          }
+
+          // Mirror into memory alerts for immediate UI crisis modal
+          if (screeningResult.priority === 'URGENT_REVIEW') {
+            crisisAlerts.unshift({
+              id: flagRecord.id,
+              studentId: studentId || 'std_student',
+              studentName: studentName || 'Student User',
+              gradeSection: gradeSection || 'Grade 12 - STEM A',
+              timestamp: new Date().toISOString(),
+              companionId: companionId as CompanionId,
+              triggerPhrase: screeningResult.triggerPhrase || message.slice(0, 80),
+              contextSnippet: screeningResult.contextExcerpt || message.slice(0, 160),
+              tier: 3,
+              referralType: 'tier3_emergency',
+              status: 'flagged'
+            });
+          }
+        } catch (dbErr: any) {
+          console.error('[C3 Safety Screening] Firestore save error:', dbErr);
+          flagPersistenceStatus = 'failed';
+          honestSafetyNotice = "We encountered a database error while attempting to record this safety notice. Please speak directly with a Guidance Counselor or contact the 24/7 NCMH crisis hotline at 1553.";
+        }
+      }
+
+      // Build message payload for Gemini companion multi-turn conversation
       const formattedContents: any[] = [];
       if (Array.isArray(history) && history.length > 0) {
         history
@@ -434,78 +492,6 @@ async function startServer() {
         modelsToTry.push("gemini-flash-latest");
       }
 
-      const finalizeSafetyAudit = (rawReply: string) => {
-        let effectiveTier = detectedTier;
-        let effectiveTrigger = detectedTriggerPhrase;
-
-        if (rawReply.includes("[CRISIS_ALERT]")) {
-          if (!effectiveTier || effectiveTier < 3) {
-            effectiveTier = 3;
-            effectiveTrigger = effectiveTrigger || "High distress detected during conversation";
-          }
-        }
-
-        const rawNumeric = String(studentId || '8921').replace(/\D/g, '');
-        const anonStudentId = `STU-${rawNumeric ? rawNumeric.slice(-4).padStart(4, '0') : '8921'}`;
-        const companionDisplayName = companion.name as 'Cali' | 'Casti' | 'Cedi';
-
-        if (effectiveTier === 3 || effectiveTier === 2) {
-          const flaggedItem: FlaggedRiskItem = {
-            id: `frl_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
-            timestamp: new Date().toISOString(),
-            displayTime: 'Just now',
-            anonymizedStudentId: anonStudentId,
-            studentRealName: studentName || 'Student User',
-            gradeSection: gradeSection || 'Grade 12 - Senior High School',
-            companionUsed: companionDisplayName,
-            flaggedSnippet: message,
-            triggerPhrase: effectiveTrigger || message.substring(0, 60),
-            riskLevel: effectiveTier === 3 ? 'High' : 'Moderate',
-            status: 'New'
-          };
-
-          db.addFlaggedRiskLog(flaggedItem);
-
-          if (effectiveTier === 3) {
-            const emergencyAlert: CrisisAlert = {
-              id: `alert_${Date.now()}`,
-              studentId: studentId || 'std_maria_santos',
-              studentName: studentName || 'Maria Santos',
-              gradeSection: gradeSection || 'Grade 12 - STEM A',
-              timestamp: new Date().toISOString(),
-              companionId: companionId as CompanionId,
-              triggerPhrase: effectiveTrigger || message.substring(0, 100),
-              contextSnippet: `High risk trigger during chat with ${companion.name}: "${message.substring(0, 100)}..."`,
-              tier: 3,
-              referralType: 'tier3_emergency',
-              status: 'flagged'
-            };
-            crisisAlerts.unshift(emergencyAlert);
-
-            riskEventLogs.unshift({
-              id: `re_${Date.now()}`,
-              tier: 3,
-              timestamp: new Date().toISOString(),
-              anonymized: false,
-              studentId,
-              studentName,
-              gradeSection,
-              actionTaken: 'crisis_interstitial_shown'
-            });
-          }
-        } else if (effectiveTier === 1) {
-          riskEventLogs.unshift({
-            id: `re_${Date.now()}`,
-            tier: 1,
-            timestamp: new Date().toISOString(),
-            anonymized: true,
-            actionTaken: 'resource_shown'
-          });
-        }
-
-        return { effectiveTier, effectiveTrigger };
-      };
-
       const isStreamRequested = req.body?.stream === true || req.headers?.accept === 'text/event-stream';
 
       if (isStreamRequested) {
@@ -549,16 +535,22 @@ async function startServer() {
           return res.end();
         }
 
-        const { effectiveTier, effectiveTrigger } = finalizeSafetyAudit(botReply);
+        const isUrgent = screeningResult.priority === 'URGENT_REVIEW' || botReply.includes("[CRISIS_ALERT]");
         const cleanReply = botReply.replace("[CRISIS_ALERT]", "").trim();
 
         res.write(`data: ${JSON.stringify({
           done: true,
           reply: cleanReply,
           text: cleanReply,
-          isCrisisTriggered: effectiveTier === 3,
-          riskTier: effectiveTier,
-          triggerPhrase: effectiveTrigger,
+          screeningPriority: screeningResult.priority,
+          screeningCategory: screeningResult.category,
+          screeningReason: screeningResult.reasoning,
+          flagPersistenceStatus,
+          createdFlagId,
+          safetyNotice: honestSafetyNotice,
+          isCrisisTriggered: isUrgent,
+          riskTier: isUrgent ? 3 : screeningResult.priority === 'REVIEW_REQUIRED' ? 2 : null,
+          triggerPhrase: screeningResult.triggerPhrase,
           engineUsed: 'gemini',
           messageCount: currentMsgCount,
           isSessionEnded: currentMsgCount >= 40,
@@ -604,15 +596,21 @@ async function startServer() {
         });
       }
 
-      const { effectiveTier, effectiveTrigger } = finalizeSafetyAudit(botReply);
+      const isUrgent = screeningResult.priority === 'URGENT_REVIEW' || botReply.includes("[CRISIS_ALERT]");
       const cleanReply = botReply.replace("[CRISIS_ALERT]", "").trim();
 
       res.json({
         reply: cleanReply,
         text: cleanReply,
-        isCrisisTriggered: effectiveTier === 3,
-        riskTier: effectiveTier,
-        triggerPhrase: effectiveTrigger,
+        screeningPriority: screeningResult.priority,
+        screeningCategory: screeningResult.category,
+        screeningReason: screeningResult.reasoning,
+        flagPersistenceStatus,
+        createdFlagId,
+        safetyNotice: honestSafetyNotice,
+        isCrisisTriggered: isUrgent,
+        riskTier: isUrgent ? 3 : screeningResult.priority === 'REVIEW_REQUIRED' ? 2 : null,
+        triggerPhrase: screeningResult.triggerPhrase,
         engineUsed: 'gemini',
         messageCount: currentMsgCount,
         isSessionEnded: currentMsgCount >= 40,
@@ -820,50 +818,133 @@ async function startServer() {
   const verifyCounselorAuth = (req: any, res: any, next: any) => {
     const authHeader = req.headers['authorization'] || req.headers['x-counselor-token'];
     const token = typeof authHeader === 'string' ? authHeader.replace(/^Bearer\s+/i, '').trim() : '';
+
     if (!token) {
       return res.status(401).json({
         error: "Unauthorized: Access to student risk records is restricted to authenticated guidance counselors."
       });
     }
+
+    // Role check: If token indicates a student account or unauthorized role
+    const userRole = req.headers['x-user-role'];
+    if (token.startsWith('std_') || token.includes('student') || userRole === 'student') {
+      return res.status(403).json({
+        error: "Forbidden: Student accounts are strictly prohibited from reading or modifying counselor safety records."
+      });
+    }
+
+    if (userRole && userRole !== 'counselor' && userRole !== 'admin') {
+      return res.status(403).json({
+        error: "Forbidden: Role not authorized to access guidance triage records."
+      });
+    }
+
     if (!activeCounselorTokens.has(token) && !token.startsWith('csl_token_')) {
       return res.status(401).json({
         error: "Invalid or expired counselor session token. Please sign in again."
       });
     }
+
     activeCounselorTokens.add(token);
     next();
   };
 
-  // 7. Flagged Risk Logs endpoints (Persistent Database Storage with Counselor Auth)
-  app.get("/api/flagged-risks", verifyCounselorAuth, (req, res) => {
-    const logs = db.getFlaggedRiskLogs();
-    res.json({ success: true, logs });
-  });
+  // 7. Flagged Risk Logs endpoints (Persistent Firestore Database with Counselor Auth)
+  app.get("/api/flagged-risks", verifyCounselorAuth, async (req, res) => {
+    try {
+      const includeDemo = req.query.includeDemo === 'true';
+      const flags = await firestoreSafetyService.getSafetyFlags({ includeDemo });
 
-  // Allows student chat safeguard to record safety concern in local audit database
-  app.post("/api/flagged-risks", (req, res) => {
-    const item = req.body;
-    if (item && item.id) {
-      db.addFlaggedRiskLog(item);
+      const authHeader = req.headers['authorization'] || req.headers['x-counselor-token'];
+      const token = typeof authHeader === 'string' ? authHeader.replace(/^Bearer\s+/i, '').trim() : '';
+      const counselorId = token.split('_')[2] || 'csl_active';
+      const counselorObj = VALID_COUNSELORS.find(c => c.id === counselorId) || VALID_COUNSELORS[0];
+
+      await firestoreSafetyService.recordCounselorAudit({
+        id: `audit_${Date.now()}_${Math.floor(100 + Math.random() * 900)}`,
+        timestamp: new Date().toISOString(),
+        counselorId: counselorObj.id,
+        counselorName: counselorObj.name,
+        action: 'VIEW_FLAGS',
+        details: `Counselor ${counselorObj.name} loaded safety flag records (${flags.length} loaded, includeDemo=${includeDemo}).`
+      });
+
+      res.json({
+        success: true,
+        logs: flags,
+        isFirestore: true,
+        count: flags.length
+      });
+    } catch (err: any) {
+      console.error("[FlaggedRisks GET] Firestore query error:", err);
+      res.status(500).json({
+        success: false,
+        error: `Database error querying safety flags: ${err?.message || "Firestore unavailable"}`,
+        isFirestore: false
+      });
     }
-    const current = db.getFlaggedRiskLogs();
-    res.json({ success: true, count: current.length, logs: current });
   });
 
-  app.post("/api/flagged-risks/action", verifyCounselorAuth, (req, res) => {
-    const { id, status, reviewedBy, reviewedAt, dismissReason, escalationRecord } = req.body;
-    const updated = db.updateFlaggedRiskLog(id, {
-      ...(status && { status }),
-      ...(reviewedBy && { reviewedBy }),
-      ...(reviewedAt && { reviewedAt }),
-      ...(dismissReason && { dismissReason }),
-      ...(escalationRecord && { escalationRecord })
+  app.post("/api/flagged-risks/action", verifyCounselorAuth, async (req, res) => {
+    try {
+      const { id, status, notes, assignedCounselorId, assignedCounselorName } = req.body;
+      if (!id || !status) {
+        return res.status(400).json({ error: "Flag ID and target status are required." });
+      }
+
+      const validStatuses = ['Pending', 'Acknowledged', 'Under Review', 'Follow-up Recorded', 'Closed'];
+      if (!validStatuses.includes(status)) {
+        return res.status(400).json({ error: `Invalid status "${status}". Allowed statuses: ${validStatuses.join(', ')}` });
+      }
+
+      const authHeader = req.headers['authorization'] || req.headers['x-counselor-token'];
+      const token = typeof authHeader === 'string' ? authHeader.replace(/^Bearer\s+/i, '').trim() : '';
+      const counselorId = token.split('_')[2] || 'csl_active';
+      const counselorObj = VALID_COUNSELORS.find(c => c.id === counselorId) || VALID_COUNSELORS[0];
+
+      const updated = await firestoreSafetyService.updateSafetyFlagStatus(id, {
+        status,
+        counselorId: counselorObj.id,
+        counselorName: counselorObj.name,
+        notes,
+        assignedCounselorId,
+        assignedCounselorName
+      });
+
+      if (updated) {
+        return res.json({ success: true, item: updated, isFirestore: true });
+      }
+
+      res.status(404).json({ error: `Safety flag record with ID "${id}" was not found in Firestore.` });
+    } catch (err: any) {
+      console.error("[FlaggedRisks Action] Firestore update error:", err);
+      res.status(500).json({
+        success: false,
+        error: `Failed to update safety flag status in database: ${err?.message}`
+      });
+    }
+  });
+
+  // Counselor audit logs endpoint
+  app.get("/api/counselor/audit-logs", verifyCounselorAuth, async (req, res) => {
+    try {
+      const auditLogs = await firestoreSafetyService.getCounselorAuditLogs(50);
+      res.json({ success: true, auditLogs, isFirestore: true });
+    } catch (err: any) {
+      res.status(500).json({ success: false, error: err?.message });
+    }
+  });
+
+  // Safety screening system status endpoint
+  app.get("/api/safety-status", (req, res) => {
+    const status = firestoreSafetyService.getStatus();
+    res.json({
+      service: "C3 Student Safety Flagging System",
+      firestoreAvailable: status.available,
+      error: status.error,
+      screeningModel: "gemini-3.1-flash-lite (structured JSON)",
+      timestamp: new Date().toISOString()
     });
-
-    if (updated) {
-      return res.json({ success: true, item: updated });
-    }
-    res.json({ success: true, updatedLocally: true });
   });
 
   // 8. Student School Account Authentication & Directory
@@ -991,6 +1072,9 @@ async function startServer() {
       res.sendFile(path.join(distPath, 'index.html'));
     });
   }
+
+  // Seed initial demonstration safety flags for Defense Demo Mode if empty
+  await firestoreSafetyService.seedDemoFlagsIfEmpty();
 
   app.listen(PORT, "0.0.0.0", () => {
     console.log(`C3 AI Companion Server running on http://0.0.0.0:${PORT}`);

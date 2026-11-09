@@ -67,7 +67,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin }) => {
           <div className="w-full h-full bg-white dark:bg-slate-900 rounded-[22px] flex items-center justify-center overflow-hidden">
             <img
               src="/logo.png"
-              alt="Cabiao National Senior High School logo"
+              alt="Cabiao Senior High School logo"
               className="w-full h-full object-cover"
               draggable={false}
             />
