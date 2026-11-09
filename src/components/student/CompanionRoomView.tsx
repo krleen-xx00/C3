@@ -172,7 +172,6 @@ export const CompanionRoomView: React.FC<CompanionRoomViewProps> = ({
     }
   });
   const [isOfflineToolsOpen, setIsOfflineToolsOpen] = useState<boolean>(false);
-  const [isSafetyDisclosureOpen, setIsSafetyDisclosureOpen] = useState<boolean>(false);
 
   // Persist messages in localStorage
   useEffect(() => {
@@ -367,8 +366,6 @@ export const CompanionRoomView: React.FC<CompanionRoomViewProps> = ({
       let isCrisisTriggered = false;
       let isSessionEnded = false;
       let timestamp = new Date().toISOString();
-      let safetyNotice: string | undefined = undefined;
-      let screeningResult: any = undefined;
 
       if (contentType.includes('text/event-stream') && response.body) {
         const reader = response.body.getReader();
@@ -401,13 +398,6 @@ export const CompanionRoomView: React.FC<CompanionRoomViewProps> = ({
                   if (payload.isCrisisTriggered) isCrisisTriggered = payload.isCrisisTriggered;
                   if (payload.isSessionEnded) isSessionEnded = payload.isSessionEnded;
                   if (payload.timestamp) timestamp = payload.timestamp;
-                  if (payload.safetyNotice) safetyNotice = payload.safetyNotice;
-                  if (payload.screeningResult) {
-                    screeningResult = payload.screeningResult;
-                    if (payload.screeningResult.priority === 'URGENT_REVIEW') {
-                      isCrisisTriggered = true;
-                    }
-                  }
                 }
               } catch (parseErr: any) {
                 if (parseErr.message && parseErr.message.includes('Gemini API error')) {
@@ -433,11 +423,6 @@ export const CompanionRoomView: React.FC<CompanionRoomViewProps> = ({
         isCrisisTriggered = !!data.isCrisisTriggered;
         isSessionEnded = !!data.isSessionEnded;
         timestamp = data.timestamp || new Date().toISOString();
-        safetyNotice = data.safetyNotice || data.screeningResult?.safetyNotice;
-        screeningResult = data.screeningResult;
-        if (data.screeningResult?.priority === 'URGENT_REVIEW') {
-          isCrisisTriggered = true;
-        }
       } else {
         const rawText = await response.text();
         const snippet = rawText.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 140);
@@ -476,9 +461,7 @@ export const CompanionRoomView: React.FC<CompanionRoomViewProps> = ({
         timestamp: timestamp,
         isCrisisTriggered: isCrisisTriggered,
         riskTier: serverTier,
-        riskTriggerPhrase: triggerPhrase,
-        safetyNotice: safetyNotice,
-        screeningResult: screeningResult
+        riskTriggerPhrase: triggerPhrase
       };
 
       setMessages(prev => ({
@@ -641,21 +624,6 @@ export const CompanionRoomView: React.FC<CompanionRoomViewProps> = ({
               <Coffee className="w-3.5 h-3.5 text-amber-500" />
               <span>{consecutiveMessages} / {MAX_SESSION_STUDENT_MESSAGES} msgs</span>
             </span>
-
-            {/* Safety & Privacy Disclosures */}
-            <button
-              type="button"
-              onClick={() => setIsSafetyDisclosureOpen(true)}
-              className={`inline-flex items-center space-x-1.5 px-3 py-1 rounded-full text-xs font-semibold border transition-all cursor-pointer shadow-xs ${
-                isDarkMode
-                  ? 'bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-300 border-emerald-500/35'
-                  : 'bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border-emerald-300'
-              }`}
-              title="Learn how message safety screening works and who reviews flagged concerns"
-            >
-              <ShieldAlert className="w-3.5 h-3.5 text-emerald-500" />
-              <span>Safety &amp; Review Policy</span>
-            </button>
 
             {/* Offline Tools Access */}
             <button
@@ -841,55 +809,15 @@ export const CompanionRoomView: React.FC<CompanionRoomViewProps> = ({
                   {isUser ? '👤' : activeCompanion.avatar}
                 </div>
 
-                {/* Message Bubble & Safety Notice */}
-                <div className="flex flex-col max-w-[85%] sm:max-w-[78%]">
-                  <div
-                    className={`p-3 sm:p-3.5 rounded-2xl text-xs sm:text-sm leading-relaxed whitespace-pre-wrap ${
-                      isUser
-                        ? `${themeStyles.userBubble} rounded-tr-xs`
-                        : `${themeStyles.botBubble} rounded-tl-xs`
-                    }`}
-                  >
-                    {msg.text}
-                  </div>
-
-                  {/* Calm, Direct, Honest Student Safety Notice Card */}
-                  {msg.safetyNotice && (
-                    <motion.div
-                      initial={{ opacity: 0, y: 4 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      className={`mt-2 p-3 sm:p-3.5 rounded-2xl border text-xs space-y-2 shadow-xs ${
-                        isDarkMode
-                          ? 'bg-[#241A16] border-[#4A3425] text-[#F0DFD0]'
-                          : 'bg-[#FFF9F2] border-[#ECD5B8] text-[#5C3D24]'
-                      }`}
-                    >
-                      <div className="flex items-center space-x-2 font-bold text-amber-600 dark:text-amber-400">
-                        <ShieldAlert className="w-4 h-4 shrink-0" />
-                        <span>Student Guidance Safeguard Notice</span>
-                      </div>
-                      <p className="leading-relaxed font-medium">
-                        {msg.screeningResult?.savedToDb !== false
-                          ? 'Your message has been noted for our guidance counselor to review during school hours.'
-                          : 'We could not log this to the counselor dashboard right now. Please reach out to a counselor or trusted adult directly.'}
-                      </p>
-                      <p className={`text-[11px] leading-relaxed ${isDarkMode ? 'text-[#C4B2A2]' : 'text-[#7D6B5E]'}`}>
-                        C3 is not monitored 24/7 and is not an emergency service. Guidance counselor reviews take place during regular school hours (Monday–Friday, 8 AM – 5 PM).
-                      </p>
-                      <div className="pt-1 flex items-center justify-between flex-wrap gap-2">
-                        <button
-                          type="button"
-                          onClick={() => setIsSafetyDisclosureOpen(true)}
-                          className="px-2.5 py-1 rounded-lg text-[11px] font-bold bg-amber-500/20 hover:bg-amber-500/30 text-amber-800 dark:text-amber-200 border border-amber-500/30 cursor-pointer"
-                        >
-                          View 24/7 Hotlines &amp; Protocols
-                        </button>
-                        <span className="text-[10px] opacity-70">
-                          Non-punitive • Wellbeing Support
-                        </span>
-                      </div>
-                    </motion.div>
-                  )}
+                {/* Message Bubble */}
+                <div
+                  className={`max-w-[85%] sm:max-w-[78%] p-3 sm:p-3.5 rounded-2xl text-xs sm:text-sm leading-relaxed whitespace-pre-wrap ${
+                    isUser
+                      ? `${themeStyles.userBubble} rounded-tr-xs`
+                      : `${themeStyles.botBubble} rounded-tl-xs`
+                  }`}
+                >
+                  {msg.text}
                 </div>
               </motion.div>
             );
@@ -1138,106 +1066,6 @@ export const CompanionRoomView: React.FC<CompanionRoomViewProps> = ({
         onClose={() => setIsOfflineToolsOpen(false)}
         isDarkMode={isDarkMode}
       />
-
-      {/* Student Safety, Privacy & Human Review Disclosure Modal */}
-      <AnimatePresence>
-        {isSafetyDisclosureOpen && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 backdrop-blur-sm bg-black/60">
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.95 }}
-              className={`w-full max-w-xl max-h-[85vh] overflow-y-auto rounded-3xl border shadow-2xl p-6 space-y-4 ${
-                isDarkMode ? 'bg-[#1E1714] border-[#3D322B] text-[#EDE5DB]' : 'bg-white border-[#E8DDD0] text-[#3D2C2C]'
-              }`}
-            >
-              <div className="flex items-center justify-between border-b pb-3" style={{ borderColor: isDarkMode ? '#382E27' : '#E8DDD0' }}>
-                <div className="flex items-center space-x-2">
-                  <div className="w-8 h-8 rounded-xl bg-emerald-500/20 text-emerald-500 flex items-center justify-center">
-                    <ShieldAlert className="w-4 h-4" />
-                  </div>
-                  <div>
-                    <h3 className="text-sm font-black">Student Safety &amp; Human Review Policy</h3>
-                    <p className={`text-[11px] ${isDarkMode ? 'text-[#8A796B]' : 'text-[#8C7575]'}`}>
-                      Cabiao Senior High School • Guidance Safeguard Protocol
-                    </p>
-                  </div>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setIsSafetyDisclosureOpen(false)}
-                  className="p-1 rounded-lg opacity-60 hover:opacity-100 cursor-pointer"
-                >
-                  ✕
-                </button>
-              </div>
-
-              {/* Core Disclosures */}
-              <div className="space-y-3 text-xs leading-relaxed">
-                <div className={`p-3.5 rounded-2xl border space-y-1.5 ${
-                  isDarkMode ? 'bg-[#221A16] border-[#382D25]' : 'bg-[#FAF6F0] border-[#E8DDD0]'
-                }`}>
-                  <h4 className="font-bold text-emerald-600 dark:text-emerald-400 flex items-center space-x-1.5">
-                    <span>1. What Gets Flagged &amp; Who Reviews It</span>
-                  </h4>
-                  <p>
-                    Messages containing disclosures of potential self-harm, emotional distress, or personal safety risks are flagged for human review. These records are <strong>only accessible to authorized Cabiao Senior High School guidance counselors</strong> through an authenticated workspace. Your classmates and teachers cannot see your flags.
-                  </p>
-                </div>
-
-                <div className={`p-3.5 rounded-2xl border space-y-1.5 ${
-                  isDarkMode ? 'bg-[#221A16] border-[#382D25]' : 'bg-[#FAF6F0] border-[#E8DDD0]'
-                }`}>
-                  <h4 className="font-bold text-amber-600 dark:text-amber-400 flex items-center space-x-1.5">
-                    <span>2. Strictly Non-Disciplinary &amp; Caring Support</span>
-                  </h4>
-                  <p>
-                    Safety screening exists exclusively to protect student wellbeing. It is <strong>never used for disciplinary records, punishment, or academic penalties</strong>. The purpose is to ensure that students experiencing hardship have access to caring human guidance.
-                  </p>
-                </div>
-
-                <div className={`p-3.5 rounded-2xl border space-y-1.5 ${
-                  isDarkMode ? 'bg-[#221A16] border-[#382D25]' : 'bg-[#FAF6F0] border-[#E8DDD0]'
-                }`}>
-                  <h4 className="font-bold text-purple-600 dark:text-purple-400 flex items-center space-x-1.5">
-                    <span>3. Review Hours &amp; System Limitations</span>
-                  </h4>
-                  <p>
-                    C3 is an <strong>academic research prototype</strong>. The AI does <em>not</em> make clinical diagnoses or provide medical treatment. Counselor reviews occur <strong>during regular school hours (Monday–Friday, 8:00 AM – 5:00 PM)</strong>. C3 is <strong>not monitored 24/7</strong> and is not an emergency dispatch service.
-                  </p>
-                </div>
-
-                <div className={`p-3.5 rounded-2xl border space-y-2 ${
-                  isDarkMode ? 'bg-[#2B1B1B] border-[#522929] text-[#FCDADA]' : 'bg-[#FFF5F5] border-[#FED7D7] text-[#742A2A]'
-                }`}>
-                  <h4 className="font-bold flex items-center space-x-1.5 text-rose-600 dark:text-rose-400">
-                    <span>4. Immediate 24/7 Crisis Hotlines</span>
-                  </h4>
-                  <p className="text-[11px]">
-                    If you or someone you know is in immediate danger, please reach out directly to 24/7 crisis specialists:
-                  </p>
-                  <ul className="list-disc pl-4 space-y-1 text-[11px]">
-                    <li><strong>NCMH Crisis Hotline:</strong> 1553 (toll-free nationwide), 0917-899-8727, 0966-351-4518</li>
-                    <li><strong>In Touch Community Services:</strong> (02) 8893-7603, 0917-800-1123</li>
-                    <li><strong>Hopeline Philippines:</strong> (02) 8804-4673, 0917-558-4673</li>
-                    <li><strong>Cabiao SHS Guidance Office:</strong> Guidance Triage Unit, Cabiao, Nueva Ecija</li>
-                  </ul>
-                </div>
-              </div>
-
-              <div className="flex items-center justify-end pt-2">
-                <button
-                  type="button"
-                  onClick={() => setIsSafetyDisclosureOpen(false)}
-                  className="px-4 py-2 rounded-xl text-xs font-bold bg-[#D4A373] text-[#1E1712] hover:bg-[#C28F5E] cursor-pointer"
-                >
-                  I Understand
-                </button>
-              </div>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
     </div>
   );
 };

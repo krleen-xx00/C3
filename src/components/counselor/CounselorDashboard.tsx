@@ -196,24 +196,11 @@ export const CounselorDashboard: React.FC<CounselorDashboardProps> = ({ isDarkMo
   // Tab State: 'risk-log' (Flagged Risk Log), 'queue' (Referral Queue), 'trends' (Mood Analytics)
   const [activeViewTab, setActiveViewTab] = useState<'risk-log' | 'queue' | 'trends'>('risk-log');
 
-  // Flagged Risk Log State & Firestore Live Polling
-  const [flaggedRiskLogs, setFlaggedRiskLogs] = useState<FlaggedRiskItem[]>([]);
-  const [isDemoModeActive, setIsDemoModeActive] = useState<boolean>(false);
-  const [isLoadingFlags, setIsLoadingFlags] = useState<boolean>(false);
-  const [lastRefreshedAt, setLastRefreshedAt] = useState<string>('');
-  const [selectedRiskFilter, setSelectedRiskFilter] = useState<string>('ALL');
+  // Flagged Risk Log State
+  const [flaggedRiskLogs, setFlaggedRiskLogs] = useState<FlaggedRiskItem[]>(() => getFlaggedRiskLogs());
+  const [selectedRiskFilter, setSelectedRiskFilter] = useState<'ALL' | 'New' | 'Reviewed' | 'Escalated' | 'Dismissed'>('ALL');
   const [riskSearchQuery, setRiskSearchQuery] = useState<string>('');
   const [expandedLogId, setExpandedLogId] = useState<string | null>(null);
-
-  // Status Action Modal (for adding counselor notes upon transitioning statuses)
-  const [actionTargetItem, setActionTargetItem] = useState<FlaggedRiskItem | null>(null);
-  const [actionTargetStatus, setActionTargetStatus] = useState<string>('Follow-up Recorded');
-  const [actionNotesInput, setActionNotesInput] = useState<string>('');
-  const [isActionModalOpen, setIsActionModalOpen] = useState<boolean>(false);
-
-  // Action Audit Trail Modal
-  const [auditTargetItem, setAuditTargetItem] = useState<FlaggedRiskItem | null>(null);
-  const [isAuditModalOpen, setIsAuditModalOpen] = useState<boolean>(false);
 
   // Escalation Modal State
   const [escalationTargetItem, setEscalationTargetItem] = useState<FlaggedRiskItem | null>(null);
@@ -229,56 +216,50 @@ export const CounselorDashboard: React.FC<CounselorDashboardProps> = ({ isDarkMo
   const [alerts, setAlerts] = useState<CounselorAlert[]>(INITIAL_COUNSELOR_ALERTS);
   const [selectedChartRange, setSelectedChartRange] = useState<'weekly' | 'daily'>('weekly');
 
-  // Authenticated Firestore Flag Fetcher
-  const fetchFirestoreFlags = React.useCallback(async (includeDemo: boolean) => {
-    const token = localStorage.getItem('c3-active-counselor-token') || 'csl_token_default';
-    setIsLoadingFlags(true);
-    try {
-      const res = await fetch(`/api/flagged-risks?includeDemo=${includeDemo}`, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
-      const data = await res.json();
-      setIsLoadingFlags(false);
-      if (data?.success && Array.isArray(data.logs)) {
-        const normalized: FlaggedRiskItem[] = data.logs.map((l: any) => ({
-          id: l.id,
-          timestamp: l.createdAt || l.timestamp || new Date().toISOString(),
-          displayTime: l.displayTime || new Date(l.createdAt || l.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-          anonymizedStudentId: l.studentRef || l.anonymizedStudentId || 'STU-ANON',
-          studentRealName: l.studentName || l.studentRealName || 'Student User',
-          gradeSection: l.gradeSection || 'Grade 12',
-          companionUsed: (l.companion || l.companionUsed || 'Casti') as any,
-          flaggedSnippet: l.contextSnippet || l.flaggedSnippet || '',
-          triggerPhrase: l.triggerPhrase || '',
-          riskLevel: l.priority === 'URGENT_REVIEW' ? 'High' : 'Moderate',
-          priority: l.priority || (l.riskLevel === 'High' ? 'URGENT_REVIEW' : 'REVIEW_REQUIRED'),
-          category: l.category || 'emotional_distress',
-          status: l.status || 'Pending',
-          reviewedBy: l.assignedCounselorName || l.reviewedBy,
-          reviewedAt: l.reviewedAt,
-          actionHistory: l.actionHistory || [],
-          followUpNotes: l.followUpNotes,
-          isDemoRecord: Boolean(l.isDemoRecord)
-        }));
-        setFlaggedRiskLogs(normalized);
-        setLastRefreshedAt(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }));
-      }
-    } catch (err) {
-      setIsLoadingFlags(false);
-      console.warn('[CounselorDashboard] Live fetch error:', err);
-    }
-  }, []);
-
-  // Poll Firestore every 8 seconds for live updates
+  // Sync flagged risks on mount, on cross-tab storage, and on internal app updates
   useEffect(() => {
-    fetchFirestoreFlags(isDemoModeActive);
-    const interval = setInterval(() => {
-      fetchFirestoreFlags(isDemoModeActive);
-    }, 8000);
-    return () => clearInterval(interval);
-  }, [fetchFirestoreFlags, isDemoModeActive]);
+    const handleSync = () => {
+      setFlaggedRiskLogs(getFlaggedRiskLogs());
+    };
+
+    // Immediate sync on component mount / view switch
+    handleSync();
+
+    // Cross-tab storage updates
+    window.addEventListener('storage', handleSync);
+    // Same-tab student mode flagging updates
+    window.addEventListener('c3-flagged-risk-updated', handleSync);
+    // Focus event when switching back into the tab/view
+    window.addEventListener('focus', handleSync);
+
+    // Also attempt fetching from server API to merge any persisted logs with authorization
+    const token = localStorage.getItem('c3-active-counselor-token') || 'csl_token_default';
+    fetch('/api/flagged-risks', {
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
+    })
+      .then(res => res.json())
+      .then(data => {
+        if (data?.success && Array.isArray(data.logs) && data.logs.length > 0) {
+          const local = getFlaggedRiskLogs();
+          const localIds = new Set(local.map(l => l.id));
+          const toAdd = data.logs.filter((l: any) => !localIds.has(l.id));
+          if (toAdd.length > 0) {
+            const merged = [...toAdd, ...local];
+            saveFlaggedRiskLogs(merged);
+            setFlaggedRiskLogs(merged);
+          }
+        }
+      })
+      .catch(() => {});
+
+    return () => {
+      window.removeEventListener('storage', handleSync);
+      window.removeEventListener('c3-flagged-risk-updated', handleSync);
+      window.removeEventListener('focus', handleSync);
+    };
+  }, []);
 
   const handleLoginSuccess = (counselor: CounselorUser) => {
     setActiveCounselor(counselor);
@@ -290,73 +271,25 @@ export const CounselorDashboard: React.FC<CounselorDashboardProps> = ({ isDarkMo
     setActiveCounselorSession(null);
   };
 
-  // Flagged Risk Log Actions (Firestore persistent status updates)
-  const handleUpdateFlagStatus = async (id: string, newStatus: string, notes?: string) => {
+  // Flagged Risk Log Actions
+  const handleMarkAsReviewed = (id: string) => {
     if (!activeCounselor) return;
-    const token = localStorage.getItem('c3-active-counselor-token') || 'csl_token_default';
-
-    // Optimistic UI update
-    setFlaggedRiskLogs(prev => prev.map(item => {
-      if (item.id === id) {
-        return {
-          ...item,
-          status: newStatus as any,
-          reviewedBy: activeCounselor.name,
-          reviewedAt: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-          followUpNotes: notes || item.followUpNotes,
-          actionHistory: [
-            ...(item.actionHistory || []),
-            {
-              action: `STATUS_CHANGED_TO_${newStatus.toUpperCase()}`,
-              performedBy: activeCounselor.id,
-              performedByName: activeCounselor.name,
-              timestamp: new Date().toISOString(),
-              notes: notes || `Counselor updated status to ${newStatus}`
-            }
-          ]
-        };
-      }
-      return item;
-    }));
-
-    try {
-      await fetch('/api/flagged-risks/action', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({
-          id,
-          status: newStatus,
-          notes,
-          counselorId: activeCounselor.id,
-          counselorName: activeCounselor.name
-        })
-      });
-      fetchFirestoreFlags(isDemoModeActive);
-    } catch (err) {
-      console.error('Failed to update status on server:', err);
-    }
+    const updated = markRiskLogReviewed(id, activeCounselor.name);
+    setFlaggedRiskLogs(updated);
   };
 
-  const handleOpenActionModal = (item: FlaggedRiskItem, targetStatus: string) => {
-    setActionTargetItem(item);
-    setActionTargetStatus(targetStatus);
-    setActionNotesInput(targetStatus === 'Closed' ? 'Issue reviewed and resolved in accordance with guidance safeguarding protocol.' : 'Follow-up consultation conducted or scheduled with student.');
-    setIsActionModalOpen(true);
+  const handleOpenDismissModal = (item: FlaggedRiskItem) => {
+    setDismissTargetItem(item);
+    setDismissReasonInput('False Alarm / Conversational expression without clinical intent. Reviewed by counselor.');
+    setIsDismissModalOpen(true);
   };
 
-  const handleConfirmActionModal = () => {
-    if (!actionTargetItem) return;
-    handleUpdateFlagStatus(actionTargetItem.id, actionTargetStatus, actionNotesInput);
-    setIsActionModalOpen(false);
-    setActionTargetItem(null);
-  };
-
-  const handleOpenAuditModal = (item: FlaggedRiskItem) => {
-    setAuditTargetItem(item);
-    setIsAuditModalOpen(true);
+  const handleConfirmDismiss = () => {
+    if (!dismissTargetItem || !activeCounselor) return;
+    const updated = dismissRiskLog(dismissTargetItem.id, dismissReasonInput, activeCounselor.name);
+    setFlaggedRiskLogs(updated);
+    setIsDismissModalOpen(false);
+    setDismissTargetItem(null);
   };
 
   const handleOpenEscalationModal = (item: FlaggedRiskItem) => {
@@ -364,33 +297,9 @@ export const CounselorDashboard: React.FC<CounselorDashboardProps> = ({ isDarkMo
     setIsEscalationModalOpen(true);
   };
 
-  const handleConfirmEscalation = (notes: string, parentContacted: boolean, parentDetails?: string) => {
-    if (!escalationTargetItem) return;
-    handleUpdateFlagStatus(
-      escalationTargetItem.id,
-      'Follow-up Recorded',
-      `Manual Escalation: ${notes}${parentContacted ? ` • Parent contacted: ${parentDetails || 'Confirmed'}` : ''}`
-    );
-    setIsEscalationModalOpen(false);
-    setEscalationTargetItem(null);
-  };
-
-  const handleOpenDismissModal = (item: FlaggedRiskItem) => {
-    setDismissTargetItem(item);
-    setDismissReasonInput('');
-    setIsDismissModalOpen(true);
-  };
-
-  const handleConfirmDismiss = () => {
-    if (!dismissTargetItem) return;
-    handleUpdateFlagStatus(
-      dismissTargetItem.id,
-      'Closed',
-      `Dismissed as False Alarm / Non-Clinical Expression: ${dismissReasonInput || 'Verified by counselor'}`
-    );
-    setIsDismissModalOpen(false);
-    setDismissTargetItem(null);
-    setDismissReasonInput('');
+  const handleConfirmEscalation = (id: string, record: ManualEscalationRecord) => {
+    const updated = escalateRiskLog(id, record);
+    setFlaggedRiskLogs(updated);
   };
 
   // Referral Queue actions
@@ -449,11 +358,7 @@ export const CounselorDashboard: React.FC<CounselorDashboardProps> = ({ isDarkMo
 
   // Filtered Flagged Risk Logs
   const filteredRiskLogs = flaggedRiskLogs.filter(item => {
-    const matchesFilter = selectedRiskFilter === 'ALL'
-      ? true
-      : selectedRiskFilter === 'Urgent'
-      ? item.priority === 'URGENT_REVIEW' || item.riskLevel === 'High'
-      : item.status === selectedRiskFilter;
+    const matchesFilter = selectedRiskFilter === 'ALL' || item.status === selectedRiskFilter;
     const query = riskSearchQuery.toLowerCase().trim();
     const matchesSearch = !query ||
       item.anonymizedStudentId.toLowerCase().includes(query) ||
@@ -463,8 +368,8 @@ export const CounselorDashboard: React.FC<CounselorDashboardProps> = ({ isDarkMo
     return matchesFilter && matchesSearch;
   });
 
-  const pendingRiskCount = flaggedRiskLogs.filter(item => item.status === 'Pending').length;
-  const urgentRiskCount = flaggedRiskLogs.filter(item => item.priority === 'URGENT_REVIEW' || item.riskLevel === 'High').length;
+  const newRiskCount = flaggedRiskLogs.filter(item => item.status === 'New').length;
+  const highRiskCount = flaggedRiskLogs.filter(item => item.riskLevel === 'High' && item.status !== 'Dismissed').length;
 
   const activeAlerts = alerts
     .filter(a => a.status === 'active' || a.status === 'contacted')
@@ -653,7 +558,7 @@ export const CounselorDashboard: React.FC<CounselorDashboardProps> = ({ isDarkMo
           >
             <ShieldAlert className="w-4 h-4" />
             <span>Flagged Risk Log</span>
-            {pendingRiskCount > 0 && (
+            {newRiskCount > 0 && (
               <span
                 className={`px-2 py-0.2 rounded-full text-[10px] font-black ${
                   activeViewTab === 'risk-log'
@@ -665,7 +570,7 @@ export const CounselorDashboard: React.FC<CounselorDashboardProps> = ({ isDarkMo
                     : 'bg-[#FEE2E2] text-[#DC2626]'
                 }`}
               >
-                {pendingRiskCount} Pending
+                {newRiskCount} New
               </span>
             )}
           </button>
@@ -729,69 +634,12 @@ export const CounselorDashboard: React.FC<CounselorDashboardProps> = ({ isDarkMo
       {activeViewTab === 'risk-log' && (
         <div className="space-y-4">
           
-          {/* Firestore Live Sync Status & Defense Demo Mode Switch */}
-          <div className={`p-3 rounded-2xl border flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs ${
-            isDarkMode ? 'bg-[#221B17] border-[#382E27]' : 'bg-[#FAF6F0] border-[#E8DDD0]'
-          }`}>
-            <div className="flex items-center space-x-3 flex-wrap gap-y-2">
-              <div className="flex items-center space-x-2">
-                <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
-                <span className="font-bold">Firestore Persistent Storage: Live</span>
-                {lastRefreshedAt && (
-                  <span className={`text-[11px] ${isDarkMode ? 'text-[#8A796B]' : 'text-[#8C7575]'}`}>
-                    (Synced at {lastRefreshedAt})
-                  </span>
-                )}
-              </div>
-              <button
-                type="button"
-                onClick={() => fetchFirestoreFlags(isDemoModeActive)}
-                disabled={isLoadingFlags}
-                className={`px-2.5 py-1 rounded-lg border text-[11px] font-bold cursor-pointer transition-colors ${
-                  isDarkMode
-                    ? 'bg-[#2D231E] hover:bg-[#382B24] border-[#44362B] text-[#D4A373]'
-                    : 'bg-white hover:bg-[#FAF4EB] border-[#D8C6B2] text-[#8F5B34]'
-                }`}
-                title="Refresh live Firestore flags"
-              >
-                {isLoadingFlags ? 'Syncing...' : '↻ Refresh Now'}
-              </button>
-            </div>
-
-            {/* Defense Demo Mode Switch */}
-            <div className="flex items-center space-x-2">
-              <span className={`text-[11px] font-medium ${isDarkMode ? 'text-[#A09080]' : 'text-[#7D6B5E]'}`}>
-                Defense Demo Mode:
-              </span>
-              <button
-                type="button"
-                onClick={() => {
-                  const next = !isDemoModeActive;
-                  setIsDemoModeActive(next);
-                  fetchFirestoreFlags(next);
-                }}
-                className={`px-3 py-1 rounded-xl text-xs font-bold border transition-all cursor-pointer flex items-center space-x-1.5 ${
-                  isDemoModeActive
-                    ? 'bg-amber-500 text-stone-900 border-amber-600 shadow-xs'
-                    : isDarkMode
-                    ? 'bg-[#1E1714] text-[#A09080] border-[#382E27]'
-                    : 'bg-white text-[#8C7575] border-[#D8C6B2]'
-                }`}
-                title="Toggle presentation synthetic records separated from live student data"
-              >
-                <span>{isDemoModeActive ? '● Demo Records Visible' : '○ Live Records Only'}</span>
-              </button>
-            </div>
-          </div>
-
           {/* Filter Bar & Search */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div className="flex items-center space-x-1.5 sm:space-x-2 flex-wrap gap-y-1.5">
-              {(['ALL', 'Pending', 'Acknowledged', 'Under Review', 'Follow-up Recorded', 'Closed', 'Urgent'] as const).map(filterKey => {
+              {(['ALL', 'New', 'Reviewed', 'Escalated', 'Dismissed'] as const).map(filterKey => {
                 const count = filterKey === 'ALL'
                   ? flaggedRiskLogs.length
-                  : filterKey === 'Urgent'
-                  ? flaggedRiskLogs.filter(i => i.priority === 'URGENT_REVIEW' || i.riskLevel === 'High').length
                   : flaggedRiskLogs.filter(i => i.status === filterKey).length;
 
                 return (
@@ -860,11 +708,11 @@ export const CounselorDashboard: React.FC<CounselorDashboardProps> = ({ isDarkMo
                     }`}
                   >
                     <th className="py-3.5 px-4 font-bold">Timestamp</th>
-                    <th className="py-3.5 px-3 font-bold">Student Ref (Anonymized)</th>
+                    <th className="py-3.5 px-3 font-bold">Student ID (Anonymized)</th>
                     <th className="py-3.5 px-3 font-bold">Companion</th>
-                    <th className="py-3.5 px-4 font-bold min-w-[260px]">Flagged Message</th>
-                    <th className="py-3.5 px-3 font-bold">Priority &amp; Category</th>
-                    <th className="py-3.5 px-3 font-bold">Review Status</th>
+                    <th className="py-3.5 px-4 font-bold min-w-[260px]">Flagged Snippet</th>
+                    <th className="py-3.5 px-3 font-bold">Risk Level</th>
+                    <th className="py-3.5 px-3 font-bold">Status</th>
                     <th className="py-3.5 px-4 font-bold text-right">Counselor Actions</th>
                   </tr>
                 </thead>
@@ -921,7 +769,7 @@ export const CounselorDashboard: React.FC<CounselorDashboardProps> = ({ isDarkMo
 
                             {/* 2. Student ID (Anonymized) */}
                             <td className="py-3.5 px-3 whitespace-nowrap">
-                              <div className="flex items-center space-x-1.5 flex-wrap gap-1">
+                              <div className="flex items-center space-x-1.5">
                                 <span className={`px-2.5 py-1 rounded-lg font-mono font-black text-xs border ${
                                   isDarkMode
                                     ? 'bg-[#291F18] border-[#443324] text-[#E8CDAC]'
@@ -929,11 +777,6 @@ export const CounselorDashboard: React.FC<CounselorDashboardProps> = ({ isDarkMo
                                 }`}>
                                   {logItem.anonymizedStudentId}
                                 </span>
-                                {logItem.isDemoRecord && (
-                                  <span className="px-2 py-0.5 rounded-full font-bold text-[9px] bg-purple-500/20 text-purple-600 dark:text-purple-300 border border-purple-500/30">
-                                    DEMO
-                                  </span>
-                                )}
                               </div>
                               <span className={`text-[10px] block mt-0.5 ${isDarkMode ? 'text-[#8A796B]' : 'text-[#8C7575]'}`}>
                                 {logItem.gradeSection}
@@ -954,7 +797,7 @@ export const CounselorDashboard: React.FC<CounselorDashboardProps> = ({ isDarkMo
                               </span>
                             </td>
 
-                            {/* 4. Flagged Message */}
+                            {/* 4. Flagged Snippet */}
                             <td className="py-3.5 px-4">
                               <div className="space-y-1">
                                 <p className="font-medium text-slate-800 dark:text-slate-200 line-clamp-2 leading-relaxed">
@@ -962,7 +805,7 @@ export const CounselorDashboard: React.FC<CounselorDashboardProps> = ({ isDarkMo
                                 </p>
                                 {logItem.triggerPhrase && (
                                   <span className={`inline-block text-[10px] font-bold px-2 py-0.5 rounded ${
-                                    logItem.priority === 'URGENT_REVIEW' || isHigh
+                                    isHigh
                                       ? 'bg-rose-500/15 text-rose-600 dark:text-rose-400'
                                       : 'bg-amber-500/15 text-amber-700 dark:text-amber-400'
                                   }`}>
@@ -972,159 +815,99 @@ export const CounselorDashboard: React.FC<CounselorDashboardProps> = ({ isDarkMo
                               </div>
                             </td>
 
-                            {/* 5. Priority & Category */}
+                            {/* 5. Risk Level */}
                             <td className="py-3.5 px-3 whitespace-nowrap">
-                              <div className="space-y-1">
-                                {logItem.priority === 'URGENT_REVIEW' || isHigh ? (
-                                  <span className="inline-flex items-center space-x-1.5 px-2.5 py-1 rounded-lg text-xs font-black uppercase tracking-wider bg-rose-500/15 text-rose-600 dark:text-rose-400 border border-rose-500/30">
-                                    <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse" />
-                                    <span>Urgent Review</span>
-                                  </span>
-                                ) : (
-                                  <span className="inline-flex items-center space-x-1.5 px-2.5 py-1 rounded-lg text-xs font-black uppercase tracking-wider bg-amber-500/15 text-amber-700 dark:text-amber-400 border border-amber-500/30">
-                                    <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
-                                    <span>Review Required</span>
-                                  </span>
-                                )}
-                                <span className={`block text-[10px] capitalize font-medium ${isDarkMode ? 'text-[#A09080]' : 'text-[#7D6B5E]'}`}>
-                                  {(logItem.category || 'emotional_distress').replace(/_/g, ' ')}
+                              {isHigh ? (
+                                <span className="inline-flex items-center space-x-1.5 px-2.5 py-1 rounded-lg text-xs font-black uppercase tracking-wider bg-rose-500/15 text-rose-600 dark:text-rose-400 border border-rose-500/30">
+                                  <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse" />
+                                  <span>High</span>
                                 </span>
-                              </div>
+                              ) : (
+                                <span className="inline-flex items-center space-x-1.5 px-2.5 py-1 rounded-lg text-xs font-black uppercase tracking-wider bg-amber-500/15 text-amber-700 dark:text-amber-400 border border-amber-500/30">
+                                  <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
+                                  <span>Moderate</span>
+                                </span>
+                              )}
                             </td>
 
-                            {/* 6. Review Status (5 Official Statuses) */}
+                            {/* 6. Status */}
                             <td className="py-3.5 px-3 whitespace-nowrap">
-                              {logItem.status === 'Pending' && (
-                                <span className="inline-flex items-center space-x-1 px-2.5 py-1 rounded-md text-[11px] font-black uppercase tracking-wider bg-rose-500/15 text-rose-600 dark:text-rose-400 border border-rose-500/25">
-                                  <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse" />
-                                  <span>Pending</span>
+                              {isNew && (
+                                <span className="inline-block px-2.5 py-1 rounded-md text-[11px] font-black uppercase tracking-wider bg-rose-500/15 text-rose-600 dark:text-rose-400 border border-rose-500/25">
+                                  ● New Alert
                                 </span>
                               )}
-                              {logItem.status === 'Acknowledged' && (
-                                <span className="inline-flex items-center space-x-1 px-2.5 py-1 rounded-md text-[11px] font-bold uppercase tracking-wider bg-blue-500/15 text-blue-600 dark:text-blue-400 border border-blue-500/25">
-                                  <span>👁 Acknowledged</span>
+                              {isReviewed && (
+                                <span className="inline-block px-2.5 py-1 rounded-md text-[11px] font-bold uppercase tracking-wider bg-blue-500/15 text-blue-600 dark:text-blue-400 border border-blue-500/25">
+                                  ✓ Reviewed
                                 </span>
                               )}
-                              {logItem.status === 'Under Review' && (
-                                <span className="inline-flex items-center space-x-1 px-2.5 py-1 rounded-md text-[11px] font-bold uppercase tracking-wider bg-purple-500/15 text-purple-600 dark:text-purple-300 border border-purple-500/25">
-                                  <span>🔍 Under Review</span>
+                              {isEscalated && (
+                                <span className="inline-block px-2.5 py-1 rounded-md text-[11px] font-black uppercase tracking-wider bg-purple-500/15 text-purple-600 dark:text-purple-300 border border-purple-500/25">
+                                  ▲ Escalated
                                 </span>
                               )}
-                              {logItem.status === 'Follow-up Recorded' && (
-                                <span className="inline-flex items-center space-x-1 px-2.5 py-1 rounded-md text-[11px] font-bold uppercase tracking-wider bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/25">
-                                  <span>✓ Follow-up Recorded</span>
-                                </span>
-                              )}
-                              {logItem.status === 'Closed' && (
-                                <span className="inline-flex items-center space-x-1 px-2.5 py-1 rounded-md text-[11px] font-bold uppercase tracking-wider bg-stone-500/15 text-stone-600 dark:text-stone-400 border border-stone-500/25">
-                                  <span>✓ Closed</span>
-                                </span>
-                              )}
-                              {/* Fallback for legacy items */}
-                              {!['Pending', 'Acknowledged', 'Under Review', 'Follow-up Recorded', 'Closed'].includes(logItem.status) && (
+                              {isDismissed && (
                                 <span className="inline-block px-2.5 py-1 rounded-md text-[11px] font-bold uppercase tracking-wider bg-slate-500/15 text-slate-600 dark:text-slate-400 border border-slate-500/25">
-                                  {logItem.status}
+                                  Dismissed
                                 </span>
                               )}
                             </td>
 
                             {/* 7. Counselor Actions */}
                             <td className="py-3.5 px-4 text-right whitespace-nowrap">
-                              <div className="flex items-center justify-end space-x-1.5 flex-wrap gap-y-1">
-                                {/* Action: Acknowledge */}
-                                {logItem.status === 'Pending' && (
+                              <div className="flex items-center justify-end space-x-1.5">
+                                {/* Action 1: Mark Reviewed */}
+                                {isNew && (
                                   <button
                                     type="button"
-                                    onClick={() => handleUpdateFlagStatus(logItem.id, 'Acknowledged')}
+                                    onClick={() => handleMarkAsReviewed(logItem.id)}
                                     className={`px-2.5 py-1.5 rounded-xl text-xs font-bold border transition-all cursor-pointer flex items-center space-x-1 shadow-2xs ${
                                       isDarkMode
                                         ? 'bg-[#2B3527] hover:bg-[#374532] text-[#A7F3D0] border-[#435C41]'
                                         : 'bg-[#ECFDF5] hover:bg-[#D1FAE5] text-[#065F46] border-[#A7F3D0]'
                                     }`}
-                                    title="Acknowledge flag as received"
+                                    title="Mark as reviewed by counselor"
                                   >
                                     <Check className="w-3.5 h-3.5" />
-                                    <span>Acknowledge</span>
+                                    <span>Mark Reviewed</span>
                                   </button>
                                 )}
 
-                                {/* Action: Begin Review */}
-                                {(logItem.status === 'Pending' || logItem.status === 'Acknowledged') && (
+                                {/* Action 2: Dismiss / False Alarm */}
+                                {!isDismissed && (
                                   <button
                                     type="button"
-                                    onClick={() => handleUpdateFlagStatus(logItem.id, 'Under Review')}
-                                    className={`px-2.5 py-1.5 rounded-xl text-xs font-bold border transition-all cursor-pointer flex items-center space-x-1 shadow-2xs ${
-                                      isDarkMode
-                                        ? 'bg-[#2B233D] hover:bg-[#382B52] text-[#E0B0FF] border-[#4E396E]'
-                                        : 'bg-[#F5F0FF] hover:bg-[#ECE0FF] text-[#6B21A8] border-[#D8B4FE]'
-                                    }`}
-                                    title="Mark as actively under review by counselor"
-                                  >
-                                    <span>Begin Review</span>
-                                  </button>
-                                )}
-
-                                {/* Action: Record Follow-up */}
-                                {(logItem.status === 'Under Review' || logItem.status === 'Acknowledged') && (
-                                  <button
-                                    type="button"
-                                    onClick={() => handleOpenActionModal(logItem, 'Follow-up Recorded')}
-                                    className={`px-2.5 py-1.5 rounded-xl text-xs font-bold border transition-all cursor-pointer flex items-center space-x-1 shadow-2xs ${
-                                      isDarkMode
-                                        ? 'bg-[#1E3029] hover:bg-[#284239] text-[#6EE7B7] border-[#2C4F42]'
-                                        : 'bg-[#ECFDF5] hover:bg-[#D1FAE5] text-[#047857] border-[#A7F3D0]'
-                                    }`}
-                                    title="Record counselor follow-up notes"
-                                  >
-                                    <span>+ Follow-up</span>
-                                  </button>
-                                )}
-
-                                {/* Action: Close Flag */}
-                                {logItem.status !== 'Closed' && (
-                                  <button
-                                    type="button"
-                                    onClick={() => handleOpenActionModal(logItem, 'Closed')}
+                                    onClick={() => handleOpenDismissModal(logItem)}
                                     className={`px-2.5 py-1.5 rounded-xl text-xs font-semibold border transition-all cursor-pointer flex items-center space-x-1 ${
                                       isDarkMode
                                         ? 'bg-[#241E1A] hover:bg-[#2F2621] border-[#3D332B] text-[#C0B0A0]'
                                         : 'bg-white hover:bg-[#FAF4EB] border-[#D8C6B2] text-[#5E4747]'
                                     }`}
-                                    title="Close flag with resolution note"
+                                    title="Dismiss as false alarm or non-clinical expression"
                                   >
-                                    <span>Close</span>
+                                    <X className="w-3.5 h-3.5 text-slate-400" />
+                                    <span>Dismiss / False Alarm</span>
                                   </button>
                                 )}
 
-                                {/* Action: Re-open Flag */}
-                                {logItem.status === 'Closed' && (
-                                  <button
-                                    type="button"
-                                    onClick={() => handleUpdateFlagStatus(logItem.id, 'Pending', 'Flag re-opened by counselor')}
-                                    className={`px-2.5 py-1.5 rounded-xl text-xs font-semibold border transition-all cursor-pointer flex items-center space-x-1 ${
-                                      isDarkMode
-                                        ? 'bg-[#2B231D] hover:bg-[#352B23] border-[#44362B] text-[#D4A373]'
-                                        : 'bg-[#FFF8EE] hover:bg-[#FCEFD9] border-[#ECD5B8] text-[#8F5B34]'
-                                    }`}
-                                    title="Re-open flag for further assessment"
-                                  >
-                                    <span>Re-open</span>
-                                  </button>
-                                )}
-
-                                {/* Action: Audit Trail Modal */}
+                                {/* Action 3: Manual Escalation Log */}
                                 <button
                                   type="button"
-                                  onClick={() => handleOpenAuditModal(logItem)}
-                                  className={`px-2.5 py-1.5 rounded-xl text-xs font-bold border transition-all cursor-pointer flex items-center space-x-1 ${
-                                    isDarkMode
-                                      ? 'bg-[#251E19] hover:bg-[#302620] border-[#3D332B] text-[#C9BAAB]'
-                                      : 'bg-stone-50 hover:bg-stone-100 border-[#D8C6B2] text-[#5E4747]'
+                                  onClick={() => handleOpenEscalationModal(logItem)}
+                                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center space-x-1 shadow-2xs ${
+                                    isEscalated
+                                      ? isDarkMode
+                                        ? 'bg-[#3A244A] text-[#EADCF7] border border-[#5E3D80]'
+                                        : 'bg-[#EDE5F8] text-[#5C348A] border border-[#D8C7F0]'
+                                      : isDarkMode
+                                      ? 'bg-[#D4A373] hover:bg-[#C28F5E] text-[#1E1712]'
+                                      : 'bg-[#8F5B34] hover:bg-[#784823] text-white'
                                   }`}
-                                  title="View complete immutable audit trail"
+                                  title="Log official human-in-the-loop counselor escalation"
                                 >
                                   <FileText className="w-3.5 h-3.5" />
-                                  <span>Audit</span>
+                                  <span>{isEscalated ? 'View Escalation' : 'Manual Escalation Log'}</span>
                                 </button>
 
                                 {/* Quick Details Toggle */}
@@ -1151,54 +934,51 @@ export const CounselorDashboard: React.FC<CounselorDashboardProps> = ({ isDarkMo
                                     <div className="flex items-center space-x-2">
                                       <ShieldCheck className="w-4 h-4 text-emerald-500" />
                                       <span className="font-bold">
-                                        Flag ID: {logItem.id} • Student Ref: {logItem.anonymizedStudentId}
+                                        Audit Record: {logItem.id} • Anonymized Student ID: {logItem.anonymizedStudentId}
                                       </span>
                                     </div>
                                     {logItem.reviewedBy && (
                                       <span className={`text-[11px] ${isDarkMode ? 'text-[#A09080]' : 'text-[#7D6B5E]'}`}>
-                                        Last Handled by: <strong>{logItem.reviewedBy}</strong> ({logItem.reviewedAt})
+                                        Audited by: <strong>{logItem.reviewedBy}</strong> ({logItem.reviewedAt})
                                       </span>
                                     )}
                                   </div>
 
-                                  {/* Follow-up / Resolution Notes if any */}
-                                  {logItem.followUpNotes && (
-                                    <div className={`p-3 rounded-2xl border text-xs space-y-1 ${
-                                      isDarkMode ? 'bg-[#1C261F] border-[#2C4F3E]' : 'bg-[#F0FDF4] border-[#BBF7D0]'
-                                    }`}>
-                                      <span className="font-bold text-emerald-600 dark:text-emerald-400 block">
-                                        COUNSELOR NOTES &amp; FOLLOW-UP:
-                                      </span>
-                                      <p className="leading-relaxed">{logItem.followUpNotes}</p>
+                                  {/* Escalation Notes if any */}
+                                  {logItem.escalationRecord && (
+                                    <div
+                                      className={`p-3.5 rounded-2xl border text-xs space-y-2 ${
+                                        isDarkMode ? 'bg-[#241724] border-[#4E2B52]' : 'bg-[#FAF4FF] border-[#E9D8FD]'
+                                      }`}
+                                    >
+                                      <div className="flex items-center justify-between font-bold text-purple-700 dark:text-purple-300">
+                                        <span>ESCALATION ACTION: {logItem.escalationRecord.actionTitle}</span>
+                                        <span>{logItem.escalationRecord.escalatedAt}</span>
+                                      </div>
+                                      <p className="leading-relaxed">
+                                        <strong>Case Notes:</strong> {logItem.escalationRecord.counselorNotes}
+                                      </p>
+                                      {logItem.escalationRecord.parentContactedManually && (
+                                        <div className="p-2 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-700 dark:text-emerald-300">
+                                          <strong>Manual Parent Notification Conducted:</strong> {logItem.escalationRecord.parentContactDetails || 'Counselor personally spoke with parent/guardian.'}
+                                        </div>
+                                      )}
                                     </div>
                                   )}
 
-                                  {/* Action History summary */}
-                                  <div className="space-y-1.5">
-                                    <span className="text-[11px] font-bold uppercase tracking-wider block opacity-80">
-                                      Action History Log ({logItem.actionHistory?.length || 0} events):
-                                    </span>
-                                    <div className="space-y-1 max-h-36 overflow-y-auto">
-                                      {logItem.actionHistory && logItem.actionHistory.length > 0 ? (
-                                        logItem.actionHistory.map((act, actIdx) => (
-                                          <div key={actIdx} className={`p-2 rounded-xl text-[11px] border flex items-center justify-between gap-2 ${
-                                            isDarkMode ? 'bg-[#221B17] border-[#382E27]' : 'bg-white border-[#E8DDD0]'
-                                          }`}>
-                                            <div>
-                                              <span className="font-bold">{act.action.replace(/_/g, ' ')}</span>
-                                              <span className="opacity-70"> by {act.performedByName || act.performedBy}</span>
-                                              {act.notes && <p className="opacity-90 italic">&ldquo;{act.notes}&rdquo;</p>}
-                                            </div>
-                                            <span className="opacity-60 text-[10px] shrink-0">
-                                              {new Date(act.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                            </span>
-                                          </div>
-                                        ))
-                                      ) : (
-                                        <p className="text-[11px] opacity-60">No additional actions logged yet.</p>
-                                      )}
+                                  {/* Dismissal Reason if any */}
+                                  {logItem.dismissReason && (
+                                    <div
+                                      className={`p-3 rounded-2xl border text-xs space-y-1 ${
+                                        isDarkMode ? 'bg-[#201C1A] border-[#382E27]' : 'bg-[#F4EFEA] border-[#E8DFD5]'
+                                      }`}
+                                    >
+                                      <span className="font-bold text-amber-600 dark:text-amber-400 block">
+                                        DISMISSAL / FALSE ALARM JUSTIFICATION:
+                                      </span>
+                                      <p className="opacity-90">{logItem.dismissReason}</p>
                                     </div>
-                                  </div>
+                                  )}
                                 </div>
                               </td>
                             </tr>
@@ -1670,195 +1450,6 @@ export const CounselorDashboard: React.FC<CounselorDashboardProps> = ({ isDarkMo
         )}
       </AnimatePresence>
 
-      {/* Counselor Status Transition & Notes Modal */}
-      <AnimatePresence>
-        {isActionModalOpen && actionTargetItem && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 backdrop-blur-sm bg-black/60">
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.95 }}
-              className={`w-full max-w-lg rounded-3xl border shadow-2xl p-6 space-y-4 ${
-                isDarkMode ? 'bg-[#1E1714] border-[#3D322B] text-[#EDE5DB]' : 'bg-white border-[#E8DDD0] text-[#3D2C2C]'
-              }`}
-            >
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-2 font-bold text-sm text-emerald-600 dark:text-emerald-400">
-                  <CheckCircle2 className="w-5 h-5" />
-                  <span>Update Status to &ldquo;{actionTargetStatus}&rdquo;</span>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setIsActionModalOpen(false)}
-                  className="p-1 rounded-lg opacity-60 hover:opacity-100"
-                >
-                  <X className="w-4 h-4" />
-                </button>
-              </div>
-
-              <div className="text-xs space-y-1.5 p-3 rounded-2xl bg-amber-500/10 border border-amber-500/20">
-                <p>
-                  Student: <strong>{actionTargetItem.anonymizedStudentId}</strong> • Companion: <strong>{actionTargetItem.companionUsed}</strong>
-                </p>
-                <p className="italic font-serif opacity-90">
-                  &ldquo;{actionTargetItem.flaggedSnippet}&rdquo;
-                </p>
-              </div>
-
-              <div className="space-y-1.5">
-                <label className="block text-xs font-bold uppercase tracking-wider">
-                  Counselor Review / Action Notes (Saved to Persistent Audit Log):
-                </label>
-                <textarea
-                  rows={4}
-                  value={actionNotesInput}
-                  onChange={(e) => setActionNotesInput(e.target.value)}
-                  placeholder="Enter detailed counseling notes, follow-up dates, or resolution summary..."
-                  className={`w-full p-3 rounded-xl border text-xs focus:outline-none ${
-                    isDarkMode
-                      ? 'bg-[#14100E] border-[#382E27] text-[#EDE5DB]'
-                      : 'bg-[#FAF7F2] border-[#E8DFD3] text-[#3D2C2C]'
-                  }`}
-                />
-              </div>
-
-              <div className="flex items-center justify-end space-x-2 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setIsActionModalOpen(false)}
-                  className="px-4 py-2 rounded-xl text-xs font-semibold border cursor-pointer"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="button"
-                  onClick={handleConfirmActionModal}
-                  className="px-4 py-2 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white cursor-pointer shadow-sm"
-                >
-                  Save &amp; Update Status
-                </button>
-              </div>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
-
-      {/* Comprehensive Action History & Audit Trail Modal */}
-      <AnimatePresence>
-        {isAuditModalOpen && auditTargetItem && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 backdrop-blur-sm bg-black/60">
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.95 }}
-              className={`w-full max-w-2xl max-h-[85vh] overflow-y-auto rounded-3xl border shadow-2xl p-6 space-y-4 ${
-                isDarkMode ? 'bg-[#1E1714] border-[#3D322B] text-[#EDE5DB]' : 'bg-white border-[#E8DDD0] text-[#3D2C2C]'
-              }`}
-            >
-              <div className="flex items-center justify-between border-b pb-3" style={{ borderColor: isDarkMode ? '#382E27' : '#E8DDD0' }}>
-                <div className="flex items-center space-x-2">
-                  <ShieldCheck className="w-5 h-5 text-emerald-500" />
-                  <div>
-                    <h3 className="text-sm font-black">Immutable Safety Flag Audit Trail</h3>
-                    <p className={`text-[11px] ${isDarkMode ? 'text-[#8A796B]' : 'text-[#8C7575]'}`}>
-                      Document ID: {auditTargetItem.id} • Student: {auditTargetItem.anonymizedStudentId}
-                    </p>
-                  </div>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setIsAuditModalOpen(false)}
-                  className="p-1 rounded-lg opacity-60 hover:opacity-100"
-                >
-                  <X className="w-4 h-4" />
-                </button>
-              </div>
-
-              {/* Message Details */}
-              <div className="p-3.5 rounded-2xl border text-xs space-y-2" style={{
-                backgroundColor: isDarkMode ? '#17120F' : '#FAF6F0',
-                borderColor: isDarkMode ? '#382E27' : '#E8DDD0'
-              }}>
-                <div className="flex items-center justify-between">
-                  <span className="font-bold">Flagged Context:</span>
-                  <span className="text-[11px] font-mono opacity-80">{auditTargetItem.displayTime}</span>
-                </div>
-                <p className="italic font-serif leading-relaxed">
-                  &ldquo;{auditTargetItem.flaggedSnippet}&rdquo;
-                </p>
-                <div className="flex items-center space-x-2 pt-1 flex-wrap gap-1">
-                  <span className="px-2 py-0.5 rounded font-bold text-[10px] bg-amber-500/15 text-amber-600 dark:text-amber-400">
-                    Priority: {auditTargetItem.priority}
-                  </span>
-                  <span className="px-2 py-0.5 rounded font-bold text-[10px] bg-blue-500/15 text-blue-600 dark:text-blue-400">
-                    Status: {auditTargetItem.status}
-                  </span>
-                  <span className="px-2 py-0.5 rounded font-bold text-[10px] bg-purple-500/15 text-purple-600 dark:text-purple-400">
-                    Category: {auditTargetItem.category}
-                  </span>
-                  {auditTargetItem.isDemoRecord && (
-                    <span className="px-2 py-0.5 rounded font-bold text-[10px] bg-fuchsia-500/15 text-fuchsia-600 dark:text-fuchsia-400">
-                      Defense Demo Record
-                    </span>
-                  )}
-                </div>
-              </div>
-
-              {/* Timeline of Actions */}
-              <div className="space-y-2">
-                <h4 className="text-xs font-bold uppercase tracking-wider opacity-80">
-                  Chronological Action History:
-                </h4>
-                {auditTargetItem.actionHistory && auditTargetItem.actionHistory.length > 0 ? (
-                  <div className="space-y-2">
-                    {auditTargetItem.actionHistory.map((entry, idx) => (
-                      <div
-                        key={idx}
-                        className={`p-3 rounded-2xl border text-xs space-y-1 ${
-                          isDarkMode ? 'bg-[#241E1A] border-[#382E27]' : 'bg-white border-[#E8DDD0]'
-                        }`}
-                      >
-                        <div className="flex items-center justify-between font-bold">
-                          <span className="text-emerald-600 dark:text-emerald-400">
-                            {entry.action.replace(/_/g, ' ')}
-                          </span>
-                          <span className="text-[10px] opacity-70 font-mono">
-                            {new Date(entry.timestamp).toLocaleString()}
-                          </span>
-                        </div>
-                        <p className={`text-[11px] ${isDarkMode ? 'text-[#A09080]' : 'text-[#7D6B5E]'}`}>
-                          Performed By: <strong>{entry.performedByName || entry.performedBy}</strong> ({entry.performedBy})
-                        </p>
-                        {entry.notes && (
-                          <div className={`p-2 rounded-xl mt-1 text-[11px] ${
-                            isDarkMode ? 'bg-[#181310] text-[#D8C7B5]' : 'bg-[#FAF7F2] text-[#4A3838]'
-                          }`}>
-                            {entry.notes}
-                          </div>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="text-xs opacity-60 italic p-3">No actions recorded in history yet.</p>
-                )}
-              </div>
-
-              <div className="flex items-center justify-end pt-2">
-                <button
-                  type="button"
-                  onClick={() => setIsAuditModalOpen(false)}
-                  className="px-4 py-2 rounded-xl text-xs font-bold bg-[#D4A373] text-[#1E1712] cursor-pointer"
-                >
-                  Close Audit View
-                </button>
-              </div>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
-
     </div>
   );
 };
-

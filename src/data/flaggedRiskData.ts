@@ -1,17 +1,7 @@
 import { CompanionId } from '../types';
 
 export type RiskLevel = 'Moderate' | 'High';
-export type SafetyFlagStatus = 'Pending' | 'Acknowledged' | 'Under Review' | 'Follow-up Recorded' | 'Closed';
-export type RiskStatus = SafetyFlagStatus | 'New' | 'Reviewed' | 'Escalated' | 'Dismissed';
-export type ScreeningPriority = 'NO_FLAG' | 'REVIEW_REQUIRED' | 'URGENT_REVIEW';
-
-export interface ActionHistoryEntry {
-  action: string;
-  performedBy: string;
-  performedByName: string;
-  timestamp: string;
-  notes?: string;
-}
+export type RiskStatus = 'New' | 'Reviewed' | 'Escalated' | 'Dismissed';
 
 export interface ManualEscalationRecord {
   counselorName: string;
@@ -27,32 +17,21 @@ export interface ManualEscalationRecord {
 export interface FlaggedRiskItem {
   id: string;
   timestamp: string; // ISO string
-  displayTime?: string; // Formatted relative / absolute time
+  displayTime: string; // Formatted relative / absolute time
   anonymizedStudentId: string; // e.g. "STU-8921"
-  studentRef?: string;
   studentRealName?: string; // Kept private for counselor reference
-  studentName?: string;
   gradeSection: string;
   parentEmergencyPhone?: string;
   lrn?: string;
   companionUsed: 'Cali' | 'Casti' | 'Cedi';
-  companion?: 'Cali' | 'Casti' | 'Cedi';
   flaggedSnippet: string;
-  contextSnippet?: string;
   triggerPhrase?: string;
-  riskLevel?: RiskLevel;
-  priority?: ScreeningPriority;
-  category?: string;
+  riskLevel: RiskLevel;
   status: RiskStatus;
   reviewedBy?: string;
   reviewedAt?: string;
-  assignedCounselorId?: string | null;
-  assignedCounselorName?: string | null;
   dismissReason?: string;
-  followUpNotes?: string | null;
   escalationRecord?: ManualEscalationRecord;
-  actionHistory?: ActionHistoryEntry[];
-  isDemoRecord?: boolean;
 }
 
 export const INITIAL_FLAGGED_RISK_LOG: FlaggedRiskItem[] = [
